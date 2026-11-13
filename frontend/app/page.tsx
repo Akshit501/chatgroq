@@ -347,11 +347,10 @@ export default function Home() {
                 <button
                   key={m.id}
                   onClick={() => setSelectedModel(m.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${
-                    selectedModel === m.id
+                  className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${selectedModel === m.id
                       ? "border-[#FF6B4A] bg-[#FF6B4A]/10 text-white"
                       : "border-[#21262D] bg-[#161B22]/50 hover:bg-[#161B22] text-[#8B949E] hover:text-[#C9D1D9]"
-                  }`}
+                    }`}
                 >
                   <div className="text-xs font-semibold">{m.name}</div>
                   <div className="text-[10px] opacity-75">{m.desc}</div>
@@ -542,9 +541,8 @@ export default function Home() {
             messages.map((m) => (
               <div
                 key={m.id}
-                className={`flex gap-3 max-w-3xl mx-auto ${
-                  m.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex gap-3 max-w-3xl mx-auto ${m.role === "user" ? "justify-end" : "justify-start"
+                  }`}
               >
                 {m.role === "assistant" && (
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-[#FF6B4A] to-[#FF8A65] text-white shadow-md shadow-orange-500/10 mt-1">
@@ -553,11 +551,10 @@ export default function Home() {
                 )}
 
                 <div
-                  className={`group relative max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    m.role === "user"
+                  className={`group relative max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.role === "user"
                       ? "bg-[#2563EB] text-white rounded-tr-sm"
                       : "bg-[#161B22] border border-[#2B313E] text-[#E6EDF3] rounded-tl-sm shadow-sm"
-                  }`}
+                    }`}
                 >
                   {m.attachment && (
                     <div className="mb-2 inline-flex items-center gap-1.5 rounded-md bg-blue-400/20 px-2 py-0.5 text-xs text-blue-200">
