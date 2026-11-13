@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #0b0e14;
-  --foreground: #e6edf3;
+  --background: #ffffff;
+  --foreground: #0d0d0d;
 }
 
 body {
@@ -14,7 +14,7 @@ body {
   overflow-x: hidden;
 }
 
-/* Custom sleek scrollbar */
+/* Custom sleek scrollbar for light theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -23,9 +23,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2b313e;
+  background: #d1d5db;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b4252;
+  background: #9ca3af;
 }
