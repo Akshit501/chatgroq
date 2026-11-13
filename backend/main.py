@@ -14,6 +14,8 @@ from pypdf import PdfReader
 # Load .env
 load_dotenv()
 
+DEFAULT_GROQ_KEY = os.getenv("GROQ_API_KEY", "")
+
 app = FastAPI(title="Groq AI Chat Backend", version="1.0.0")
 
 # Enable CORS so Next.js frontend (running on localhost:3000) can talk to FastAPI
@@ -46,7 +48,7 @@ def read_root():
 @app.get("/api/limits")
 def get_limits(api_key: Optional[str] = None, model: str = "openai/gpt-oss-120b"):
     """Fetch live Groq rate limit metrics."""
-    key = api_key or os.getenv("GROQ_API_KEY")
+    key = api_key or DEFAULT_GROQ_KEY
     if not key:
         raise HTTPException(status_code=400, detail="Groq API key not provided")
 
@@ -105,7 +107,7 @@ async def upload_file(file: UploadFile = File(...)):
 @app.post("/api/chat")
 async def chat_stream(req: ChatRequest):
     """Streams response from Groq using Server-Sent Events (SSE)."""
-    key = req.api_key or os.getenv("GROQ_API_KEY")
+    key = req.api_key or DEFAULT_GROQ_KEY
     if not key:
         raise HTTPException(status_code=400, detail="Groq API key required")
 

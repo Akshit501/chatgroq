@@ -16,8 +16,6 @@ import {
   Sliders,
   FileText,
   X,
-  Eye,
-  EyeOff,
   Sparkles,
   ShieldCheck,
   PanelRightClose,
@@ -193,8 +191,6 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [showKey, setShowKey] = useState(false);
   const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
   const [temperature, setTemperature] = useState(0.7);
   const [responseLength, setResponseLength] = useState<"short" | "medium" | "detailed">("medium");
@@ -221,17 +217,6 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load saved API key from localStorage
-  useEffect(() => {
-    const savedKey = localStorage.getItem("groq_api_key");
-    if (savedKey) setApiKey(savedKey);
-  }, []);
-
-  const handleApiKeyChange = (val: string) => {
-    setApiKey(val);
-    localStorage.setItem("groq_api_key", val);
-  };
-
   // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -240,7 +225,7 @@ export default function Home() {
   // Sync limits on demand
   const syncLimits = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/limits?model=${selectedModel}&api_key=${apiKey}`);
+      const res = await fetch(`${API_BASE_URL}/api/limits?model=${selectedModel}`);
       if (res.ok) {
         const data = await res.json();
         setLimits(data);
@@ -339,7 +324,6 @@ export default function Home() {
           messages: apiMessages,
           model: selectedModel,
           temperature,
-          api_key: apiKey || undefined,
         }),
       });
 
@@ -627,30 +611,6 @@ export default function Home() {
                     <div className="text-[10px] text-gray-500 font-normal">{m.desc}</div>
                   </button>
                 ))}
-              </div>
-            </div>
-
-            {/* API Key Input */}
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A] mb-1.5 flex items-center justify-between">
-                <span>Groq API Key</span>
-                <span className="text-[10px] text-gray-400 font-normal">Optional</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => handleApiKeyChange(e.target.value)}
-                  placeholder="gsk_... (uses server default if empty)"
-                  className="w-full rounded-lg border border-[#E5E5E5] bg-white px-3 py-2 pr-9 text-xs text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-                >
-                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
               </div>
             </div>
 
