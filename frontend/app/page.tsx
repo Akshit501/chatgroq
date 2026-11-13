@@ -224,9 +224,23 @@ export default function Home() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Active user (either Google Session or Guest)
   const currentUser = session?.user || guestUser;
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
@@ -880,11 +894,13 @@ export default function Home() {
 
           <div className="flex items-center gap-3">
             {lastLatency !== null && (
-              <span className="text-xs text-gray-500 flex items-center gap-1">
+              <span className="hidden sm:flex text-xs text-gray-500 items-center gap-1">
                 <Zap className="h-3.5 w-3.5 text-orange-500" />
                 {lastLatency.toFixed(2)}s latency
               </span>
             )}
+
+            {/* Quota Monitor Toggle Button */}
             <button
               onClick={() => setShowRightPanel(!showRightPanel)}
               className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
@@ -892,6 +908,102 @@ export default function Home() {
             >
               {showRightPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
             </button>
+
+            {/* Top Right User Profile Avatar / Logo (Like ChatGPT / Google) */}
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-1.5 p-0.5 rounded-full hover:ring-2 hover:ring-orange-400/50 transition-all focus:outline-none"
+                title={`${currentUser?.name || "User"} (${currentUser?.email || ""})`}
+              >
+                {currentUser?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={currentUser.image}
+                    alt={currentUser?.name || "User"}
+                    className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-200"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-[#FF6B4A] to-[#FF8A65] text-white font-bold text-xs shadow-xs ring-2 ring-gray-200">
+                    {currentUser?.name?.[0]?.toUpperCase() || "U"}
+                  </div>
+                )}
+              </button>
+
+              {/* User Profile Dropdown Menu */}
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-[#E5E5E5] bg-white p-3 shadow-xl z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-3 p-2 rounded-xl bg-gray-50 border border-gray-100 mb-2">
+                    {currentUser?.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={currentUser.image}
+                        alt="Profile"
+                        className="h-9 w-9 rounded-full object-cover border border-gray-200"
+                      />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-100 text-orange-600 font-bold text-sm">
+                        {currentUser?.name?.[0]?.toUpperCase() || "U"}
+                      </div>
+                    )}
+                    <div className="truncate text-left">
+                      <div className="text-xs font-semibold text-gray-900 truncate">
+                        {currentUser?.name || "User"}
+                      </div>
+                      <div className="text-[11px] text-gray-500 truncate">
+                        {currentUser?.email || ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-2 py-1 mb-2 text-[10px] text-emerald-700 font-medium bg-emerald-50 rounded-lg border border-emerald-200 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Active Session: {session ? "Google Account" : "Guest Mode"}</span>
+                  </div>
+
+                  <div className="space-y-1 text-xs">
+                    <button
+                      onClick={() => {
+                        setShowRightPanel(!showRightPanel);
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Quota Monitor
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-mono">
+                        {showRightPanel ? "Open" : "Closed"}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setMessages([]);
+                        setAttachment(null);
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5 text-orange-500" /> New Chat
+                    </button>
+                  </div>
+
+                  <div className="my-2 border-t border-gray-100" />
+
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      handleSignOut();
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-red-600 hover:bg-red-50 text-xs font-medium transition-colors"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Log out</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
