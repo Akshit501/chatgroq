@@ -40,8 +40,8 @@ interface Limits {
   reset_requests: string;
 }
 
-// Use production API URL if set in environment, otherwise fallback to local
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+// Production Render backend as default
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://chatgroq.onrender.com";
 
 const STARTER_PROMPTS = [
   {
