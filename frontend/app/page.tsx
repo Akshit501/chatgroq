@@ -283,7 +283,7 @@ export default function Home() {
     const setupGoogleGSI = () => {
       const activeClientId =
         process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-        "1022221568103-0rpu926c5r818s4s8u0pa2bu9951ifiv.apps.googleusercontent.com";
+        "1022221568103-bt0duq03hqn0q4i9mn4pnp9qakc3q81t.apps.googleusercontent.com";
 
       if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({

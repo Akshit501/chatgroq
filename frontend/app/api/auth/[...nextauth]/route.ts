@@ -11,7 +11,7 @@ const rawClientId =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
   process.env.GOOGLE_ID ||
   process.env.AUTH_GOOGLE_ID ||
-  "placeholder_client_id";
+  "1022221568103-bt0duq03hqn0q4i9mn4pnp9qakc3q81t.apps.googleusercontent.com";
 
 // Clean and fix optical typo where '0' (zero) was entered as capital 'O'
 const clientId = rawClientId
