@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { jsPDF } from "jspdf";
-import { useSession, signIn, signOut } from "next-auth/react";
 import {
   Send,
   Zap,
@@ -30,8 +29,21 @@ import {
   User,
   Shield,
   ArrowRight,
-  AlertCircle,
+  Mail,
 } from "lucide-react";
+
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    google?: any;
+  }
+}
+
+interface UserProfile {
+  name: string;
+  email: string;
+  image?: string | null;
+}
 
 interface Message {
   id: string;
@@ -107,6 +119,23 @@ const RESPONSE_LENGTH_OPTIONS = [
       "Provide a comprehensive, in-depth explanation with step-by-step breakdowns and examples.",
   },
 ];
+
+// Helper to decode Google JWT token
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
 
 // Helper to download code blocks as actual code files
 const downloadCodeFile = (code: string, language: string) => {
@@ -194,8 +223,13 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 }
 
 export default function Home() {
-  const { data: session, status } = useSession();
-  const [guestUser, setGuestUser] = useState<{ name: string; email: string; image?: string | null } | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Email / Name login state
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [nameInput, setNameInput] = useState("");
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -211,6 +245,7 @@ export default function Home() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const [limits, setLimits] = useState<Limits>({
     limit_tokens: 8000,
@@ -227,20 +262,75 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-
-  // Check URL query params for auth errors
+  // 1. Load saved user from localStorage
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const err = params.get("error");
-      if (err) setAuthError(err);
+    try {
+      const saved = localStorage.getItem("groqchat_user");
+      if (saved) {
+        setCurrentUser(JSON.parse(saved));
+      }
+    } catch {
+      localStorage.removeItem("groqchat_user");
+    } finally {
+      setIsInitializing(false);
     }
   }, []);
 
-  // Active user (either Google Session or Guest)
-  const currentUser = session?.user || guestUser;
+  // 2. Initialize official Google Identity Services (GIS)
+  useEffect(() => {
+    if (currentUser || isInitializing) return;
+
+    const setupGoogleGSI = () => {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: "1022221568103-0rpu926c5r818s4s8u0pa2bu9951ifiv.apps.googleusercontent.com",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          callback: (response: any) => {
+            if (response.credential) {
+              const payload = parseJwt(response.credential);
+              if (payload?.email) {
+                const user: UserProfile = {
+                  name: payload.name || payload.email.split("@")[0],
+                  email: payload.email,
+                  image: payload.picture || null,
+                };
+                setCurrentUser(user);
+                localStorage.setItem("groqchat_user", JSON.stringify(user));
+              }
+            }
+          },
+        });
+
+        const btnDiv = document.getElementById("googleSignInContainer");
+        if (btnDiv) {
+          btnDiv.innerHTML = "";
+          window.google.accounts.id.renderButton(btnDiv, {
+            theme: "outline",
+            size: "large",
+            width: 320,
+            text: "continue_with",
+            shape: "pill",
+          });
+        }
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      setupGoogleGSI();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = setupGoogleGSI;
+      document.body.appendChild(script);
+      return () => {
+        if (document.body.contains(script)) {
+          document.body.removeChild(script);
+        }
+      };
+    }
+  }, [currentUser, isInitializing, showEmailForm]);
 
   // Close user dropdown on outside click
   useEffect(() => {
@@ -547,12 +637,34 @@ export default function Home() {
     }
   };
 
+  // Sign out
   const handleSignOut = () => {
-    if (session) {
-      signOut();
-    } else {
-      setGuestUser(null);
-    }
+    setCurrentUser(null);
+    localStorage.removeItem("groqchat_user");
+  };
+
+  // Name & Email Login
+  const handleEmailLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailInput.trim()) return;
+    const user: UserProfile = {
+      name: nameInput.trim() || emailInput.split("@")[0],
+      email: emailInput.trim(),
+      image: null,
+    };
+    setCurrentUser(user);
+    localStorage.setItem("groqchat_user", JSON.stringify(user));
+  };
+
+  // Guest Instant Login
+  const handleGuestLogin = () => {
+    const user: UserProfile = {
+      name: "Guest User",
+      email: "guest@groqchat.app",
+      image: null,
+    };
+    setCurrentUser(user);
+    localStorage.setItem("groqchat_user", JSON.stringify(user));
   };
 
   const tokensPercent =
@@ -564,8 +676,8 @@ export default function Home() {
       ? Math.min(100, Math.max(0, ((limits.limit_requests - limits.remaining_requests) / limits.limit_requests) * 100))
       : 0;
 
-  // 1. Loading State
-  if (status === "loading") {
+  // 1. Initial Loading Screen
+  if (isInitializing) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-white select-none">
         <div className="flex flex-col items-center gap-3">
@@ -578,7 +690,7 @@ export default function Home() {
     );
   }
 
-  // 2. Authentication Gate: Clean ChatGPT-style Google Login Screen
+  // 2. Authentication Gate: Clean ChatGPT-style Multi-Method Login Screen
   if (!currentUser) {
     return (
       <div className="flex min-h-screen w-screen items-center justify-center bg-[#FAFAFA] px-4 select-none">
@@ -589,69 +701,85 @@ export default function Home() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#0D0D0D]">Welcome to GroqChat</h1>
           <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed">
-            Log in with your Google account to start chatting with high-speed Groq models, generate files, and export PDFs.
+            Log in to chat with ultra-fast Groq LPU models, build code, and export PDFs.
           </p>
 
-          {/* Auth Error Banner if redirected with error */}
-          {authError && (
-            <div className="mb-5 p-3 rounded-xl bg-red-50 border border-red-200 text-left text-xs text-red-700 animate-in fade-in">
-              <div className="font-semibold flex items-center gap-1.5 mb-1">
-                <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                <span>Google Sign-In Alert</span>
+          {!showEmailForm ? (
+            <div className="space-y-3">
+              {/* Official Google Identity Services Button Container */}
+              <div className="flex justify-center min-h-[44px]">
+                <div id="googleSignInContainer" />
               </div>
-              <p className="text-[11px] text-red-600 leading-relaxed">
-                {authError === "OAuthCallback"
-                  ? "Verification failed during code exchange. Please verify that GOOGLE_CLIENT_SECRET is saved correctly in your Vercel Environment Variables."
-                  : authError === "OAuthSignin"
-                  ? "Could not start Google sign in. Please verify your Google Client ID."
-                  : `Sign in error: ${authError}. You can also use Continue as Guest below.`}
-              </p>
+
+              {/* Divider */}
+              <div className="my-4 flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">or</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              {/* Sign in with Name & Email Button */}
+              <button
+                onClick={() => setShowEmailForm(true)}
+                className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-semibold text-xs py-3 px-4 shadow-2xs transition-all"
+              >
+                <Mail className="h-4 w-4 text-orange-500" />
+                <span>Continue with Email & Name</span>
+              </button>
+
+              {/* Guest / Preview Mode */}
+              <button
+                onClick={handleGuestLogin}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs py-2.5 px-4 transition-colors"
+              >
+                <User className="h-3.5 w-3.5 text-gray-500" />
+                <span>Continue as Guest (Instant Preview)</span>
+              </button>
             </div>
+          ) : (
+            /* Email & Name Form */
+            <form onSubmit={handleEmailLogin} className="space-y-3 text-left">
+              <div>
+                <label className="text-xs font-semibold text-gray-700 block mb-1">Your Name</label>
+                <input
+                  type="text"
+                  required
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="e.g. Akshit Negi"
+                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-xs text-gray-900 focus:border-orange-500 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-700 block mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-xs text-gray-900 focus:border-orange-500 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-[#0D0D0D] hover:bg-gray-800 text-white font-semibold text-xs py-3 px-4 transition-colors shadow-xs"
+              >
+                <span>Enter GroqChat</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowEmailForm(false)}
+                className="w-full text-center text-xs text-gray-500 hover:text-gray-900 pt-1"
+              >
+                ← Back to all options
+              </button>
+            </form>
           )}
-
-          {/* Google Sign In Button */}
-          <button
-            onClick={() => signIn("google", { callbackUrl: "/" })}
-            className="w-full flex items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-semibold text-sm py-3 px-4 shadow-xs transition-all hover:border-gray-400 group"
-          >
-            {/* Google Colorful G SVG */}
-            <svg className="h-5 w-5" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </svg>
-            <span>Continue with Google</span>
-            <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-
-          {/* Divider */}
-          <div className="my-6 flex items-center gap-3">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">or</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-
-          {/* Guest / Preview Mode */}
-          <button
-            onClick={() => setGuestUser({ name: "Guest User", email: "guest@groqchat.app" })}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs py-2.5 px-4 transition-colors"
-          >
-            <User className="h-3.5 w-3.5 text-gray-500" />
-            <span>Continue as Guest (Instant Preview)</span>
-          </button>
 
           {/* Security & Feature Badges */}
           <div className="mt-8 pt-6 border-t border-gray-100 grid grid-cols-2 gap-3 text-left">
@@ -986,7 +1114,7 @@ export default function Home() {
 
                   <div className="px-2 py-1 mb-2 text-[10px] text-emerald-700 font-medium bg-emerald-50 rounded-lg border border-emerald-200 flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Active Session: {session ? "Google Account" : "Guest Mode"}</span>
+                    <span>Logged in as: {currentUser?.name}</span>
                   </div>
 
                   <div className="space-y-1 text-xs">
