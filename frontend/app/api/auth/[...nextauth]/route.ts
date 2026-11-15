@@ -1,11 +1,9 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-// Ensure NEXTAUTH_URL is valid on Vercel
-if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.includes("localhost")) {
-  process.env.NEXTAUTH_URL = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "https://frontend-tau-five-uprlpolv77.vercel.app";
+// Ensure NEXTAUTH_URL is strictly set to the production domain on Vercel
+if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.includes("localhost") || process.env.VERCEL) {
+  process.env.NEXTAUTH_URL = "https://frontend-tau-five-uprlpolv77.vercel.app";
 }
 
 const rawClientId =
@@ -31,6 +29,13 @@ const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId,
       clientSecret,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
     }),
   ],
   session: {
@@ -58,6 +63,14 @@ const authOptions: NextAuthOptions = {
     },
   },
   secret: process.env.NEXTAUTH_SECRET || "groqchat_auth_secret_key_32_characters_random_string",
+  logger: {
+    error(code, metadata) {
+      console.error("NextAuth [Error]:", code, metadata);
+    },
+    warn(code) {
+      console.warn("NextAuth [Warn]:", code);
+    },
+  },
 };
 
 const handler = NextAuth(authOptions);
