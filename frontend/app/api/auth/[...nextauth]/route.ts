@@ -1,5 +1,12 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+
+// Ensure NEXTAUTH_URL is valid on Vercel
+if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.includes("localhost")) {
+  process.env.NEXTAUTH_URL = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "https://frontend-tau-five-uprlpolv77.vercel.app";
+}
 
 const rawClientId =
   process.env.GOOGLE_CLIENT_ID ||
@@ -19,26 +26,40 @@ const clientSecret = (
   "placeholder_client_secret"
 ).trim();
 
-const handler = NextAuth({
+const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId,
       clientSecret,
     }),
   ],
-  pages: {
-    signIn: "/",
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
     async session({ session, token }) {
-      if (session?.user && token?.sub) {
+      if (session?.user) {
         // @ts-expect-error custom user id property
-        session.user.id = token.sub;
+        session.user.id = token.sub || token.id;
       }
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
   },
   secret: process.env.NEXTAUTH_SECRET || "groqchat_auth_secret_key_32_characters_random_string",
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

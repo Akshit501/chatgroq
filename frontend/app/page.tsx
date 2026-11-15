@@ -30,6 +30,7 @@ import {
   User,
   Shield,
   ArrowRight,
+  AlertCircle,
 } from "lucide-react";
 
 interface Message {
@@ -227,6 +228,16 @@ export default function Home() {
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Check URL query params for auth errors
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const err = params.get("error");
+      if (err) setAuthError(err);
+    }
+  }, []);
 
   // Active user (either Google Session or Guest)
   const currentUser = session?.user || guestUser;
@@ -577,13 +588,30 @@ export default function Home() {
             <Zap className="h-7 w-7 fill-current" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#0D0D0D]">Welcome to GroqChat</h1>
-          <p className="text-xs text-gray-500 mt-2 mb-8 leading-relaxed">
+          <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed">
             Log in with your Google account to start chatting with high-speed Groq models, generate files, and export PDFs.
           </p>
 
+          {/* Auth Error Banner if redirected with error */}
+          {authError && (
+            <div className="mb-5 p-3 rounded-xl bg-red-50 border border-red-200 text-left text-xs text-red-700 animate-in fade-in">
+              <div className="font-semibold flex items-center gap-1.5 mb-1">
+                <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                <span>Google Sign-In Alert</span>
+              </div>
+              <p className="text-[11px] text-red-600 leading-relaxed">
+                {authError === "OAuthCallback"
+                  ? "Verification failed during code exchange. Please verify that GOOGLE_CLIENT_SECRET is saved correctly in your Vercel Environment Variables."
+                  : authError === "OAuthSignin"
+                  ? "Could not start Google sign in. Please verify your Google Client ID."
+                  : `Sign in error: ${authError}. You can also use Continue as Guest below.`}
+              </p>
+            </div>
+          )}
+
           {/* Google Sign In Button */}
           <button
-            onClick={() => signIn("google")}
+            onClick={() => signIn("google", { callbackUrl: "/" })}
             className="w-full flex items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-semibold text-sm py-3 px-4 shadow-xs transition-all hover:border-gray-400 group"
           >
             {/* Google Colorful G SVG */}
