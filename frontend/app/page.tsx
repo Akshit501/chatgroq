@@ -281,9 +281,13 @@ export default function Home() {
     if (currentUser || isInitializing) return;
 
     const setupGoogleGSI = () => {
+      const activeClientId =
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+        "1022221568103-0rpu926c5r818s4s8u0pa2bu9951ifiv.apps.googleusercontent.com";
+
       if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({
-          client_id: "1022221568103-0rpu926c5r818s4s8u0pa2bu9951ifiv.apps.googleusercontent.com",
+          client_id: activeClientId,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           callback: (response: any) => {
             if (response.credential) {

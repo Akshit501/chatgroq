@@ -8,6 +8,7 @@ if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.includes("localhost") 
 
 const rawClientId =
   process.env.GOOGLE_CLIENT_ID ||
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
   process.env.GOOGLE_ID ||
   process.env.AUTH_GOOGLE_ID ||
   "placeholder_client_id";
