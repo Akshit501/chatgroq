@@ -30,13 +30,25 @@ import {
   Shield,
   ArrowRight,
   Mail,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 declare global {
   interface Window {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     google?: any;
   }
+}
+
+interface Conversation {
+  id: string;
+  user_email: string;
+  title: string;
+  model?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface UserProfile {
@@ -231,6 +243,11 @@ export default function Home() {
   const [emailInput, setEmailInput] = useState("");
   const [nameInput, setNameInput] = useState("");
 
+  // Supabase conversation history
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -275,6 +292,85 @@ export default function Home() {
       setIsInitializing(false);
     }
   }, []);
+
+  // 1b. Load user's past conversations from Supabase
+  const loadConversations = async (email: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("*")
+        .eq("user_email", email)
+        .order("updated_at", { ascending: false });
+
+      if (!error && data) {
+        setConversations(data as Conversation[]);
+      }
+    } catch (err) {
+      console.error("Failed to load conversations from Supabase", err);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser?.email) {
+      loadConversations(currentUser.email);
+    } else {
+      setConversations([]);
+      setCurrentConversationId(null);
+    }
+  }, [currentUser]);
+
+  // Load a selected conversation's messages
+  const selectConversation = async (conv: Conversation) => {
+    if (conv.id === currentConversationId || isLoading) return;
+    setIsLoadingConversation(true);
+    setCurrentConversationId(conv.id);
+    if (conv.model) setSelectedModel(conv.model);
+
+    try {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", conv.id)
+        .order("created_at", { ascending: true });
+
+      if (!error && data) {
+        setMessages(
+          data.map((m) => ({
+            id: m.id,
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            attachment: m.attachment_name || undefined,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to load conversation messages", err);
+    } finally {
+      setIsLoadingConversation(false);
+    }
+  };
+
+  // Start a fresh chat
+  const startNewChat = () => {
+    setCurrentConversationId(null);
+    setMessages([]);
+    setAttachment(null);
+    setInput("");
+  };
+
+  // Delete a conversation from Supabase
+  const deleteConversation = async (e: React.MouseEvent, convId: string) => {
+    e.stopPropagation();
+    try {
+      await supabase.from("conversations").delete().eq("id", convId);
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      if (currentConversationId === convId) {
+        startNewChat();
+      }
+    } catch (err) {
+      console.error("Failed to delete conversation", err);
+    }
+  };
 
   // 2. Initialize official Google Identity Services (GIS)
   useEffect(() => {
@@ -435,6 +531,46 @@ export default function Home() {
       { id: assistantMessageId, role: "assistant", content: "" },
     ]);
 
+    // Track active conversation for Supabase persistence
+    let activeConvId = currentConversationId;
+    if (!activeConvId && currentUser?.email) {
+      try {
+        const title =
+          textToSend.length > 32 ? textToSend.slice(0, 32).trim() + "..." : textToSend.trim();
+        const { data: convData, error: convErr } = await supabase
+          .from("conversations")
+          .insert({
+            user_email: currentUser.email,
+            title: title,
+            model: selectedModel,
+          })
+          .select()
+          .single();
+
+        if (!convErr && convData) {
+          activeConvId = convData.id;
+          setCurrentConversationId(convData.id);
+          setConversations((prev) => [convData as Conversation, ...prev]);
+        }
+      } catch (err) {
+        console.error("Error creating conversation in Supabase", err);
+      }
+    }
+
+    // Save user message to Supabase
+    if (activeConvId) {
+      try {
+        await supabase.from("messages").insert({
+          conversation_id: activeConvId,
+          role: "user",
+          content: textToSend,
+          attachment_name: attachment ? attachment.name : null,
+        });
+      } catch (err) {
+        console.error("Error saving user message to Supabase", err);
+      }
+    }
+
     const startTime = performance.now();
 
     try {
@@ -493,6 +629,27 @@ export default function Home() {
                       m.id === assistantMessageId ? { ...m, latency: parsed.latency || elapsed } : m
                     )
                   );
+
+                  // Persist assistant response to Supabase
+                  if (activeConvId && assistantText.trim()) {
+                    try {
+                      await supabase.from("messages").insert({
+                        conversation_id: activeConvId,
+                        role: "assistant",
+                        content: assistantText,
+                      });
+                      await supabase
+                        .from("conversations")
+                        .update({ updated_at: new Date().toISOString() })
+                        .eq("id", activeConvId);
+
+                      if (currentUser?.email) {
+                        loadConversations(currentUser.email);
+                      }
+                    } catch (err) {
+                      console.error("Error saving assistant message to Supabase", err);
+                    }
+                  }
                 } else if (parsed.type === "error") {
                   throw new Error(parsed.data);
                 }
@@ -832,10 +989,7 @@ export default function Home() {
 
             {/* "+ New Chat" Button */}
             <button
-              onClick={() => {
-                setMessages([]);
-                setAttachment(null);
-              }}
+              onClick={startNewChat}
               className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-[#E5E5E5] bg-white hover:bg-gray-50 text-xs font-medium text-[#0D0D0D] shadow-xs transition-all"
             >
               <span className="flex items-center gap-2">
@@ -843,6 +997,42 @@ export default function Home() {
               </span>
               <span className="text-[10px] text-gray-400 font-mono">⌘K</span>
             </button>
+
+            {/* Supabase Saved Conversations List */}
+            <div className="flex flex-col gap-1 max-h-56 overflow-y-auto pr-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-1 py-0.5">
+                Recent Chats
+              </span>
+              {conversations.length === 0 ? (
+                <div className="px-2 py-3 text-center text-[11px] text-gray-400 bg-white/60 rounded-lg border border-dashed border-gray-200">
+                  No saved chats yet
+                </div>
+              ) : (
+                conversations.map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => selectConversation(c)}
+                    className={`group flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer text-xs transition-all ${
+                      currentConversationId === c.id
+                        ? "bg-gray-200/90 text-gray-900 font-semibold shadow-2xs"
+                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-gray-400 group-hover:text-orange-500" />
+                      <span className="truncate">{c.title || "Untitled Chat"}</span>
+                    </div>
+                    <button
+                      onClick={(e) => deleteConversation(e, c.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 hover:bg-white rounded transition-opacity"
+                      title="Delete chat"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
 
             {/* Response Length Preset Selector (Short / Med / Detailed) */}
             <div>
@@ -1169,7 +1359,12 @@ export default function Home() {
 
         {/* Message List */}
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
-          {messages.length === 0 ? (
+          {isLoadingConversation ? (
+            <div className="flex flex-col items-center justify-center pt-24 text-gray-400 gap-3">
+              <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+              <p className="text-xs font-medium">Loading chat history from Supabase...</p>
+            </div>
+          ) : messages.length === 0 ? (
             /* Welcome / Starter View */
             <div className="max-w-2xl mx-auto pt-12 md:pt-16 text-center select-none">
               <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#FF6B4A] to-[#FF8A65] text-white shadow-lg shadow-orange-500/10 mb-4">
