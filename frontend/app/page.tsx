@@ -999,12 +999,17 @@ export default function Home() {
             </button>
 
             {/* Supabase Saved Conversations List */}
-            <div className="flex flex-col gap-1 max-h-56 overflow-y-auto pr-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-1 py-0.5">
-                Recent Chats
-              </span>
+            <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto pr-1">
+              <div className="flex items-center justify-between px-1 py-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  Recent Chats
+                </span>
+                <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.2 rounded-full font-medium">
+                  {conversations.length}
+                </span>
+              </div>
               {conversations.length === 0 ? (
-                <div className="px-2 py-3 text-center text-[11px] text-gray-400 bg-white/60 rounded-lg border border-dashed border-gray-200">
+                <div className="px-2 py-3 text-center text-[11px] text-gray-400 bg-white/70 rounded-lg border border-dashed border-gray-200">
                   No saved chats yet
                 </div>
               ) : (
