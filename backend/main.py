@@ -2,6 +2,8 @@ import os
 import io
 import time
 import json
+import random
+from urllib.parse import quote
 from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +40,13 @@ class ChatRequest(BaseModel):
     model: str = "openai/gpt-oss-120b"
     temperature: float = 0.7
     api_key: Optional[str] = None
+
+
+class ImageRequest(BaseModel):
+    prompt: str
+    width: int = 1024
+    height: int = 1024
+    seed: Optional[int] = None
 
 
 @app.get("/")
@@ -149,6 +158,29 @@ async def chat_stream(req: ChatRequest):
             yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.post("/api/generate-image")
+async def generate_image(req: ImageRequest):
+    """Generates an image URL using zero-key Pollinations.ai (Flux/SD)."""
+    prompt = req.prompt.strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Image prompt cannot be empty")
+
+    start_time = time.time()
+    seed = req.seed if req.seed is not None else random.randint(1, 9999999)
+    encoded_prompt = quote(prompt)
+    image_url = (
+        f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+        f"?width={req.width}&height={req.height}&seed={seed}&nologo=true"
+    )
+    elapsed = round(time.time() - start_time, 2)
+    return {
+        "image_url": image_url,
+        "prompt": prompt,
+        "seed": seed,
+        "latency": elapsed,
+    }
 
 
 if __name__ == "__main__":

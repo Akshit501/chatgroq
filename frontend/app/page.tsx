@@ -32,6 +32,7 @@ import {
   Mail,
   MessageSquare,
   Loader2,
+  Image as ImageIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -234,6 +235,60 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   );
 }
 
+function GeneratedImage({ src, alt }: { src: string; alt: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `groqchat_image_${Date.now()}.jpg`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(src, "_blank");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="my-3 max-w-md rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm">
+      {!loaded && (
+        <div className="h-64 w-full flex flex-col items-center justify-center gap-2 text-xs text-gray-500 animate-pulse bg-gray-100">
+          <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+          <span>Rendering image...</span>
+        </div>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt || "Generated AI Image"}
+        onLoad={() => setLoaded(true)}
+        className={`w-full h-auto object-cover transition-opacity duration-300 ${
+          loaded ? "opacity-100" : "opacity-0 h-0"
+        }`}
+      />
+      <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-gray-100 text-[11px] text-gray-600">
+        <span className="truncate pr-2 font-medium">{alt || "AI Generated Image"}</span>
+        <button
+          onClick={handleDownload}
+          disabled={downloading}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium transition-colors flex-shrink-0"
+        >
+          <Download className="h-3 w-3 text-orange-500" />
+          <span>{downloading ? "Saving..." : "Download"}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -259,6 +314,7 @@ export default function Home() {
   );
   const [attachment, setAttachment] = useState<{ name: string; text: string; size_kb: number } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isImageMode, setIsImageMode] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
@@ -572,6 +628,82 @@ export default function Home() {
     }
 
     const startTime = performance.now();
+
+    // Check if user wants Image Generation (via toggle or /imagine /image command)
+    const lowerText = textToSend.trim().toLowerCase();
+    const isImagineCmd = lowerText.startsWith("/imagine ") || lowerText.startsWith("/image ");
+    const shouldGenerateImage = isImageMode || isImagineCmd;
+
+    if (shouldGenerateImage) {
+      const cleanPrompt = textToSend
+        .trim()
+        .replace(/^\/(imagine|image)\s+/i, "")
+        .trim();
+
+      try {
+        let imageUrl = "";
+        let latency = 0;
+
+        try {
+          const imgRes = await fetch(`${API_BASE_URL}/api/generate-image`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: cleanPrompt }),
+          });
+          if (imgRes.ok) {
+            const imgData = await imgRes.json();
+            imageUrl = imgData.image_url;
+            latency = imgData.latency || (performance.now() - startTime) / 1000;
+          }
+        } catch {
+          // Fallback directly to zero-key Pollinations endpoint if backend is waking up
+        }
+
+        if (!imageUrl) {
+          const seed = Math.floor(Math.random() * 9999999) + 1;
+          imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true`;
+          latency = (performance.now() - startTime) / 1000;
+        }
+
+        const assistantText = `Here is your generated image for **"${cleanPrompt}"**:\n\n![${cleanPrompt}](${imageUrl})`;
+        setLastLatency(latency);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId ? { ...m, content: assistantText, latency } : m
+          )
+        );
+
+        if (activeConvId) {
+          try {
+            await supabase.from("messages").insert({
+              conversation_id: activeConvId,
+              role: "assistant",
+              content: assistantText,
+            });
+            await supabase
+              .from("conversations")
+              .update({ updated_at: new Date().toISOString() })
+              .eq("id", activeConvId);
+            if (currentUser?.email) {
+              loadConversations(currentUser.email);
+            }
+          } catch (err) {
+            console.error("Error saving image message to Supabase", err);
+          }
+        }
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to generate image.";
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId ? { ...m, content: `❌ Error: ${errorMessage}` } : m
+          )
+        );
+      } finally {
+        setIsLoading(false);
+        setIsImageMode(false);
+      }
+      return;
+    }
 
     try {
       // Build API request payload
@@ -1434,6 +1566,10 @@ export default function Home() {
                         blockquote: ({ ...props }) => (
                           <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 my-2" {...props} />
                         ),
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        img: ({ src, alt }: any) => (
+                          <GeneratedImage src={src || ""} alt={alt || "Generated Image"} />
+                        ),
                       }}
                     >
                       {m.content}
@@ -1520,12 +1656,30 @@ export default function Home() {
                 <Paperclip className="h-4 w-4" />
               </button>
 
+              <button
+                type="button"
+                onClick={() => setIsImageMode(!isImageMode)}
+                className={`ml-1 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  isImageMode
+                    ? "bg-orange-100 text-orange-700 border border-orange-300 shadow-2xs"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-200"
+                }`}
+                title="Toggle AI Image Generation Mode"
+              >
+                <ImageIcon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{isImageMode ? "Image ON" : "Image"}</span>
+              </button>
+
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                placeholder="Ask anything, write code, or create a document..."
+                placeholder={
+                  isImageMode
+                    ? "Describe the image you want to generate..."
+                    : "Ask anything, write code, or type /imagine <prompt>..."
+                }
                 className="w-full bg-transparent px-3 py-3.5 text-sm text-[#0D0D0D] placeholder-gray-500 focus:outline-none pr-14"
               />
 
