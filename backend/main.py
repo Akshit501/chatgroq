@@ -5,6 +5,7 @@ import json
 import random
 from urllib.parse import quote
 from typing import List, Optional
+import httpx
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -17,6 +18,8 @@ from pypdf import PdfReader
 load_dotenv()
 
 DEFAULT_GROQ_KEY = os.getenv("GROQ_API_KEY", "")
+CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
+CLOUDFLARE_API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
 
 app = FastAPI(title="Groq AI Chat Backend", version="1.0.0")
 
@@ -198,16 +201,45 @@ async def generate_image(req: ImageRequest):
             enhanced_prompt = prompt
 
     seed = req.seed if req.seed is not None else random.randint(1, 9999999)
-    encoded_prompt = quote(enhanced_prompt)
-    image_url = (
-        f"https://image.pollinations.ai/prompt/{encoded_prompt}"
-        f"?width={req.width}&height={req.height}&seed={seed}&model=flux&nologo=true"
-    )
+    provider = "pollinations"
+    image_url = ""
+
+    # Primary: Cloudflare Workers AI (FLUX.1-schnell, 10,000 free neurons/day)
+    if CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN:
+        try:
+            cf_url = (
+                f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}"
+                "/ai/run/@cf/black-forest-labs/flux-1-schnell"
+            )
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                cf_res = await http_client.post(
+                    cf_url,
+                    headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
+                    json={"prompt": enhanced_prompt, "steps": 4},
+                )
+            if cf_res.status_code == 200:
+                cf_json = cf_res.json()
+                b64_img = (cf_json.get("result") or {}).get("image")
+                if cf_json.get("success") and b64_img:
+                    image_url = f"data:image/jpeg;base64,{b64_img}"
+                    provider = "cloudflare-flux"
+        except Exception:
+            image_url = ""
+
+    # Fallback: Zero-key Pollinations.ai
+    if not image_url:
+        encoded_prompt = quote(enhanced_prompt)
+        image_url = (
+            f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+            f"?width={req.width}&height={req.height}&seed={seed}&model=flux&nologo=true"
+        )
+
     elapsed = round(time.time() - start_time, 2)
     return {
         "image_url": image_url,
         "prompt": prompt,
         "enhanced_prompt": enhanced_prompt,
+        "provider": provider,
         "seed": seed,
         "latency": elapsed,
     }
