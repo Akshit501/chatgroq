@@ -5,26 +5,17 @@ import ReactMarkdown from "react-markdown";
 import { jsPDF } from "jspdf";
 import {
   Send,
-  Zap,
   Paperclip,
   Trash2,
   Download,
   Copy,
   Check,
   RefreshCw,
-  Cpu,
-  Sliders,
   FileText,
   X,
   Sparkles,
-  ShieldCheck,
-  PanelRightClose,
-  PanelRightOpen,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   FileDown,
-  SlidersHorizontal,
   LogOut,
   User,
   Shield,
@@ -33,6 +24,10 @@ import {
   MessageSquare,
   Loader2,
   Image as ImageIcon,
+  Menu,
+  ChevronDown,
+  SlidersHorizontal,
+  Cpu,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -75,33 +70,27 @@ interface Limits {
   reset_requests: string;
 }
 
-// Production Render backend as default
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://chatgroq.onrender.com";
 
-const STARTER_PROMPTS = [
+const STARTER_IDEAS = [
   {
     icon: "💡",
     title: "Explain Quantum Computing",
-    desc: "Clear, intuitive analogy in 2 short paragraphs",
+    desc: "Clear, intuitive analogy",
     prompt: "Explain quantum computing in two simple, intuitive paragraphs using clear analogies.",
   },
   {
     icon: "🐍",
     title: "Python Web Scraper",
-    desc: "Clean script ready to download & run",
-    prompt: "Write a clean, complete Python script using BeautifulSoup to scrape article titles from a website, with comments.",
+    desc: "Clean script ready to run",
+    prompt:
+      "Write a clean, complete Python script using BeautifulSoup to scrape article titles from a website, with comments.",
   },
   {
-    icon: "📄",
-    title: "Draft Project Proposal",
-    desc: "Structured document ready for PDF export",
-    prompt: "Draft a concise 1-page Project Proposal for an AI Chat Assistant, structured with Executive Summary, Scope, Timeline, and Deliverables.",
-  },
-  {
-    icon: "🌐",
-    title: "Fast Multilingual Translation",
-    desc: "Translate across 3 languages concisely",
-    prompt: "Translate: 'Artificial Intelligence empowers human creativity and productivity' into Spanish, French, and Japanese.",
+    icon: "🎨",
+    title: "Generate an AI Image",
+    desc: "Powered by Leonardo Lucid",
+    prompt: "Generate an image of a futuristic glass library floating above clouds at golden hour",
   },
 ];
 
@@ -115,13 +104,13 @@ const MODELS = [
 const RESPONSE_LENGTH_OPTIONS = [
   {
     id: "short",
-    label: "Short & Crisp",
+    label: "Short",
     instruction:
       "CRITICAL: Keep your answer short, direct, and concise (1-2 brief paragraphs or bullet points). No unnecessary preamble or repetitive fluff.",
   },
   {
     id: "medium",
-    label: "Medium (Recommended)",
+    label: "Medium",
     instruction:
       "CRITICAL: Provide a well-structured, medium-length response (2-3 concise paragraphs or clear bullet points). Be informative and direct without padding.",
   },
@@ -133,7 +122,6 @@ const RESPONSE_LENGTH_OPTIONS = [
   },
 ];
 
-// Helper to decode Google JWT token
 function parseJwt(token: string) {
   try {
     const base64Url = token.split(".")[1];
@@ -150,7 +138,6 @@ function parseJwt(token: string) {
   }
 }
 
-// Helper to download code blocks as actual code files
 const downloadCodeFile = (code: string, language: string) => {
   const extMap: Record<string, string> = {
     python: "py",
@@ -183,7 +170,6 @@ const downloadCodeFile = (code: string, language: string) => {
   URL.revokeObjectURL(url);
 };
 
-// Custom CodeBlock Component for ReactMarkdown
 function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -193,26 +179,24 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownload = () => {
-    downloadCodeFile(code, language);
-  };
-
   return (
-    <div className="my-3 rounded-xl overflow-hidden border border-gray-200 bg-[#18181B] text-gray-100 text-xs shadow-sm">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#27272A] border-b border-gray-700/60 text-gray-300 text-[11px] font-mono select-none">
-        <span className="font-semibold uppercase tracking-wider text-orange-400">{language || "code"}</span>
+    <div className="my-3 rounded-2xl overflow-hidden border border-[#E6E8F2] bg-[#12131A] text-gray-100 text-xs shadow-sm">
+      <div className="flex items-center justify-between px-3.5 py-2 bg-[#1B1D28] border-b border-white/10 text-gray-300 text-[11px] font-mono select-none">
+        <span className="font-semibold uppercase tracking-wider text-[#B06BFF]">
+          {language || "code"}
+        </span>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleDownload}
-            className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors bg-gray-700/40 hover:bg-gray-700 px-2 py-0.5 rounded text-[11px]"
+            onClick={() => downloadCodeFile(code, language)}
+            className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded-md text-[11px]"
             title={`Download as .${language || "txt"}`}
           >
-            <FileDown className="h-3 w-3 text-orange-300" />
-            <span>Download .{language || "txt"}</span>
+            <Download className="h-3 w-3 text-[#B06BFF]" />
+            <span>.{language || "txt"}</span>
           </button>
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors bg-gray-700/40 hover:bg-gray-700 px-2 py-0.5 rounded text-[11px]"
+            className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded-md text-[11px]"
           >
             {copied ? (
               <>
@@ -228,7 +212,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
           </button>
         </div>
       </div>
-      <pre className="p-3.5 overflow-x-auto font-mono text-xs leading-relaxed text-gray-200 bg-[#18181B]">
+      <pre className="p-3.5 overflow-x-auto font-mono text-xs leading-relaxed text-gray-200 bg-[#12131A]">
         <code>{code}</code>
       </pre>
     </div>
@@ -272,10 +256,10 @@ function GeneratedImage({ src, alt }: { src: string; alt: string }) {
   };
 
   return (
-    <div className="my-3 max-w-md rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm">
+    <div className="my-3 max-w-md rounded-2xl overflow-hidden border border-[#E6E8F2] bg-[#F5F6FB] shadow-sm">
       {!loaded && !hasError && (
-        <div className="h-64 w-full flex flex-col items-center justify-center gap-2 text-xs text-gray-500 animate-pulse bg-gray-100">
-          <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+        <div className="h-64 w-full flex flex-col items-center justify-center gap-2 text-xs text-[#7A7E92] animate-pulse bg-[#F5F6FB]">
+          <Loader2 className="h-5 w-5 animate-spin text-[#5B5BFF]" />
           <span>Rendering image...</span>
         </div>
       )}
@@ -296,18 +280,46 @@ function GeneratedImage({ src, alt }: { src: string; alt: string }) {
           }`}
         />
       )}
-      <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-gray-100 text-[11px] text-gray-600">
-        <span className="truncate pr-2 font-medium">{alt || "AI Generated Image"}</span>
+      <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-t border-[#E6E8F2] text-[11px] text-[#7A7E92]">
+        <span className="truncate pr-2 font-medium text-[#12131A]">{alt || "AI Generated Image"}</span>
         <button
           onClick={handleDownload}
           disabled={downloading}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium transition-colors flex-shrink-0"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F5F6FB] hover:bg-[#EEEEFF] text-[#12131A] hover:text-[#5B5BFF] font-medium transition-colors flex-shrink-0"
         >
-          <Download className="h-3 w-3 text-orange-500" />
+          <Download className="h-3 w-3 text-[#5B5BFF]" />
           <span>{downloading ? "Saving..." : "Download"}</span>
         </button>
       </div>
     </div>
+  );
+}
+
+function BrandLogo({ size = 40 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 40 40"
+      aria-hidden="true"
+      className="flex-shrink-0 drop-shadow-[0_8px_14px_rgba(91,91,255,0.35)]"
+    >
+      <defs>
+        <linearGradient id="groqBrandGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#5B5BFF" />
+          <stop offset="100%" stopColor="#B06BFF" />
+        </linearGradient>
+      </defs>
+      <rect width="40" height="40" rx="13" fill="url(#groqBrandGrad)" />
+      <path
+        d="M28.5 13.5A10 10 0 1 0 30 21"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="3.2"
+        strokeLinecap="round"
+      />
+      <path d="M21.5 11.5 14.5 21h4.5l-1.5 7.5 7-9.5H20z" fill="#fff" />
+    </svg>
   );
 }
 
@@ -338,9 +350,13 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [isImageMode, setIsImageMode] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
-  const [showRightPanel, setShowRightPanel] = useState(true);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Layout popovers & drawers
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
+  const [showModelMenu, setShowModelMenu] = useState(false);
+  const [showResponseMenu, setShowResponseMenu] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const [limits, setLimits] = useState<Limits>({
     limit_tokens: 8000,
@@ -355,7 +371,8 @@ export default function Home() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const insightsRef = useRef<HTMLDivElement>(null);
 
   // 1. Load saved user from localStorage
   useEffect(() => {
@@ -397,11 +414,45 @@ export default function Home() {
     }
   }, [currentUser]);
 
-  // Load a selected conversation's messages
+  // Keyboard shortcuts (Ctrl/Cmd + K for New Chat, Esc to close popovers)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCurrentConversationId(null);
+        setMessages([]);
+        setAttachment(null);
+        textareaRef.current?.focus();
+      } else if (e.key === "Escape") {
+        setShowInsights(false);
+        setShowModelMenu(false);
+        setShowResponseMenu(false);
+        setShowSettingsModal(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Close popovers on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (insightsRef.current && !insightsRef.current.contains(e.target as Node)) {
+        const btn = document.getElementById("usageToggleBtn");
+        if (btn && !btn.contains(e.target as Node)) {
+          setShowInsights(false);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const selectConversation = async (conv: Conversation) => {
     if (conv.id === currentConversationId || isLoading) return;
     setIsLoadingConversation(true);
     setCurrentConversationId(conv.id);
+    setMobileSidebarOpen(false);
     if (conv.model) setSelectedModel(conv.model);
 
     try {
@@ -428,15 +479,15 @@ export default function Home() {
     }
   };
 
-  // Start a fresh chat
   const startNewChat = () => {
     setCurrentConversationId(null);
     setMessages([]);
     setAttachment(null);
     setInput("");
+    setMobileSidebarOpen(false);
+    textareaRef.current?.focus();
   };
 
-  // Delete a conversation from Supabase
   const deleteConversation = async (e: React.MouseEvent, convId: string) => {
     e.stopPropagation();
     try {
@@ -450,7 +501,7 @@ export default function Home() {
     }
   };
 
-  // 2. Initialize official Google Identity Services (GIS)
+  // 2. Initialize Google Identity Services (GIS)
   useEffect(() => {
     if (currentUser || isInitializing) return;
 
@@ -510,23 +561,10 @@ export default function Home() {
     }
   }, [currentUser, isInitializing, showEmailForm]);
 
-  // Close user dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setShowUserMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // Sync limits on demand
   const syncLimits = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/limits?model=${selectedModel}`);
@@ -539,7 +577,6 @@ export default function Home() {
     }
   };
 
-  // Handle File Upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -569,7 +606,6 @@ export default function Home() {
     }
   };
 
-  // Send Message & Stream Response
   const sendMessage = async (promptText?: string) => {
     const textToSend = promptText || input;
     if (!textToSend.trim() || isLoading) return;
@@ -577,12 +613,10 @@ export default function Home() {
     const userMessageId = Date.now().toString();
     const assistantMessageId = (Date.now() + 1).toString();
 
-    // Attach response length instruction
     const lengthInstruction =
       RESPONSE_LENGTH_OPTIONS.find((opt) => opt.id === responseLength)?.instruction || "";
     const activeSystemPrompt = `${systemPrompt}\n\n${lengthInstruction}`;
 
-    // Build full prompt if file is attached
     let promptWithContext = textToSend;
     if (attachment) {
       promptWithContext = `The user has attached file \`${attachment.name}\`:\n\n--- BEGIN FILE CONTENT ---\n${attachment.text}\n--- END FILE CONTENT ---\n\nUser Question: ${textToSend}`;
@@ -600,16 +634,17 @@ export default function Home() {
 
     setMessages(newMessages);
     setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
     setAttachment(null);
     setIsLoading(true);
 
-    // Placeholder assistant message
     setMessages((prev) => [
       ...prev,
       { id: assistantMessageId, role: "assistant", content: "" },
     ]);
 
-    // Track active conversation for Supabase persistence
     let activeConvId = currentConversationId;
     if (!activeConvId && currentUser?.email) {
       try {
@@ -635,7 +670,6 @@ export default function Home() {
       }
     }
 
-    // Save user message to Supabase
     if (activeConvId) {
       try {
         await supabase.from("messages").insert({
@@ -651,7 +685,6 @@ export default function Home() {
 
     const startTime = performance.now();
 
-    // Auto-detect ChatGPT-style natural image requests (or explicit toggle / slash command)
     const trimmedText = textToSend.trim();
     const isImagineCmd = /^\/(imagine|image)\s+/i.test(trimmedText);
     const isNaturalImageRequest =
@@ -661,13 +694,14 @@ export default function Home() {
     const shouldGenerateImage = isImageMode || isImagineCmd || isNaturalImageRequest;
 
     if (shouldGenerateImage) {
-      const cleanPrompt = trimmedText
-        .replace(/^\/(imagine|image)\s+/i, "")
-        .replace(
-          /^(please\s+|can you\s+|could you\s+)?(generate|create|make|draw|paint|design|render|illustrate|show me)\s+(me\s+)?(an?\s+)?(image|picture|photo|illustration|art|artwork|wallpaper|poster|sketch)\s+(of\s+)?/i,
-          ""
-        )
-        .trim() || trimmedText;
+      const cleanPrompt =
+        trimmedText
+          .replace(/^\/(imagine|image)\s+/i, "")
+          .replace(
+            /^(please\s+|can you\s+|could you\s+)?(generate|create|make|draw|paint|design|render|illustrate|show me)\s+(me\s+)?(an?\s+)?(image|picture|photo|illustration|art|artwork|wallpaper|poster|sketch)\s+(of\s+)?/i,
+            ""
+          )
+          .trim() || trimmedText;
 
       setMessages((prev) =>
         prev.map((m) =>
@@ -693,7 +727,7 @@ export default function Home() {
             latency = imgData.latency || (performance.now() - startTime) / 1000;
           }
         } catch {
-          // Fallback directly to zero-key Pollinations Flux endpoint if backend is waking up
+          // Fallback directly to zero-key Pollinations endpoint
         }
 
         if (!imageUrl) {
@@ -743,7 +777,6 @@ export default function Home() {
     }
 
     try {
-      // Build API request payload
       const apiMessages = [
         { role: "system", content: activeSystemPrompt },
         ...newMessages.map((m) => ({
@@ -786,7 +819,9 @@ export default function Home() {
                 if (parsed.type === "chunk") {
                   assistantText += parsed.data;
                   setMessages((prev) =>
-                    prev.map((m) => (m.id === assistantMessageId ? { ...m, content: assistantText } : m))
+                    prev.map((m) =>
+                      m.id === assistantMessageId ? { ...m, content: assistantText } : m
+                    )
                   );
                 } else if (parsed.type === "limits") {
                   setLimits(parsed.data);
@@ -795,11 +830,12 @@ export default function Home() {
                   setLastLatency(elapsed);
                   setMessages((prev) =>
                     prev.map((m) =>
-                      m.id === assistantMessageId ? { ...m, latency: parsed.latency || elapsed } : m
+                      m.id === assistantMessageId
+                        ? { ...m, latency: parsed.latency || elapsed }
+                        : m
                     )
                   );
 
-                  // Persist assistant response to Supabase
                   if (activeConvId && assistantText.trim()) {
                     try {
                       await supabase.from("messages").insert({
@@ -830,16 +866,14 @@ export default function Home() {
         }
       }
 
-      // Update estimated tokens
       const estTokens = Math.round((promptWithContext.length + assistantText.length) / 4);
       setSessionTokens((prev) => prev + estTokens);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to communicate with Groq backend.";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to communicate with Groq backend.";
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantMessageId
-            ? { ...m, content: `❌ Error: ${errorMessage}` }
-            : m
+          m.id === assistantMessageId ? { ...m, content: `❌ Error: ${errorMessage}` } : m
         )
       );
     } finally {
@@ -853,127 +887,76 @@ export default function Home() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Export full chat as markdown
-  const exportChat = () => {
-    const text = messages.map((m) => `### ${m.role.toUpperCase()}\n\n${m.content}\n`).join("\n---\n\n");
-    const blob = new Blob([text], { type: "text/markdown" });
+  const exportAsPDF = (content: string, title = "GroqChat_Response") => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const maxLineWidth = pageWidth - margin * 2;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(91, 91, 255);
+    doc.text("GroqChat AI", margin, 18);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(122, 126, 146);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, margin, 25);
+
+    doc.setDrawColor(230, 232, 242);
+    doc.line(margin, 29, pageWidth - margin, 29);
+
+    const cleanText = content
+      .replace(/```[\s\S]*?```/g, (match) => {
+        return "\n[Code Block]\n" + match.replace(/```\w*\n?/g, "") + "\n";
+      })
+      .replace(/!\[.*?\]\(.*?\)/g, "[Generated Image]")
+      .replace(/#+\s/g, "")
+      .replace(/\*\*/g, "")
+      .replace(/\*/g, "");
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(18, 19, 26);
+
+    const lines = doc.splitTextToSize(cleanText, maxLineWidth);
+    let y = 38;
+    const lineHeight = 6;
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    for (let i = 0; i < lines.length; i++) {
+      if (y > pageHeight - 15) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(lines[i], margin, y);
+      y += lineHeight;
+    }
+
+    doc.save(`${title}_${Date.now()}.pdf`);
+  };
+
+  const exportAsDoc = (content: string, filename = "GroqChat_Document") => {
+    const htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>Document</title></head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2 style="color: #5B5BFF;">GroqChat Document</h2>
+        <p style="color: #7A7E92; font-size: 12px;">Generated: ${new Date().toLocaleString()}</p>
+        <hr/>
+        <div>${content.replace(/\n/g, "<br/>")}</div>
+      </body>
+      </html>
+    `;
+    const blob = new Blob(["\ufeff", htmlContent], { type: "application/msword" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `groq-chat-${Date.now()}.md`;
+    a.download = `${filename}_${Date.now()}.doc`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
-  // Export single message as clean, styled PDF
-  const exportAsPDF = (messageContent: string) => {
-    try {
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 16;
-      const maxLineWidth = pageWidth - margin * 2;
-
-      // Header Banner
-      doc.setFillColor(248, 250, 252);
-      doc.rect(0, 0, pageWidth, 22, "F");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.setTextColor(30, 41, 59);
-      doc.text("GroqChat Document", margin, 11);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Generated: ${new Date().toLocaleString()} | Model: ${selectedModel}`, margin, 18);
-
-      // Line below header
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.3);
-      doc.line(margin, 23, pageWidth - margin, 23);
-
-      // Body text
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10.5);
-      doc.setTextColor(30, 41, 59);
-
-      // Clean markdown tags for PDF rendering
-      const cleanText = messageContent
-        .replace(/\*\*(.*?)\*\*/g, "$1")
-        .replace(/\*(.*?)\*/g, "$1")
-        .replace(/`{3}[\w]*\n?/g, "")
-        .replace(/`([^`]+)`/g, "$1")
-        .replace(/#{1,6}\s?/g, "");
-
-      const lines = doc.splitTextToSize(cleanText, maxLineWidth);
-      let y = 31;
-      const lineHeight = 5.8;
-
-      for (let i = 0; i < lines.length; i++) {
-        if (y + lineHeight > pageHeight - margin) {
-          doc.addPage();
-          y = margin;
-        }
-        doc.text(lines[i], margin, y);
-        y += lineHeight;
-      }
-
-      doc.save(`GroqChat-Document-${Date.now()}.pdf`);
-    } catch (e) {
-      alert("Could not generate PDF: " + e);
-    }
-  };
-
-  // Export single message as Word / Doc file
-  const exportAsDoc = (messageContent: string) => {
-    try {
-      const htmlContent = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head>
-          <meta charset="utf-8">
-          <title>GroqChat Document</title>
-          <style>
-            body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #1a1a1a; padding: 40px; }
-            h1, h2, h3 { color: #0f172a; margin-top: 20px; margin-bottom: 8px; }
-            p { margin-bottom: 12px; }
-            pre { background-color: #f1f5f9; padding: 12px; border-radius: 6px; font-family: Consolas, monospace; }
-            code { font-family: Consolas, monospace; background-color: #f1f5f9; padding: 2px 4px; border-radius: 4px; }
-            .meta { color: #64748b; font-size: 9pt; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 20px; }
-          </style>
-        </head>
-        <body>
-          <h1>GroqChat Document</h1>
-          <div class="meta">Generated: ${new Date().toLocaleString()} &bull; Model: ${selectedModel}</div>
-          <div>${messageContent
-            .replace(/\n\n/g, "<p></p>")
-            .replace(/\n/g, "<br/>")}</div>
-        </body>
-        </html>
-      `;
-      const blob = new Blob([htmlContent], { type: "application/msword;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `GroqChat-Doc-${Date.now()}.doc`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert("Could not export Doc: " + e);
-    }
-  };
-
-  // Sign out
-  const handleSignOut = () => {
-    setCurrentUser(null);
-    localStorage.removeItem("groqchat_user");
-  };
-
-  // Name & Email Login
   const handleEmailLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailInput.trim()) return;
@@ -986,7 +969,6 @@ export default function Home() {
     localStorage.setItem("groqchat_user", JSON.stringify(user));
   };
 
-  // Guest Instant Login
   const handleGuestLogin = () => {
     const user: UserProfile = {
       name: "Guest User",
@@ -997,105 +979,113 @@ export default function Home() {
     localStorage.setItem("groqchat_user", JSON.stringify(user));
   };
 
-  const tokensPercent =
-    limits.limit_tokens > 0
-      ? Math.min(100, Math.max(0, ((limits.limit_tokens - limits.remaining_tokens) / limits.limit_tokens) * 100))
-      : 0;
-  const reqPercent =
-    limits.limit_requests > 0
-      ? Math.min(100, Math.max(0, ((limits.limit_requests - limits.remaining_requests) / limits.limit_requests) * 100))
-      : 0;
+  const handleSignOut = () => {
+    setCurrentUser(null);
+    localStorage.removeItem("groqchat_user");
+    setMessages([]);
+    setConversations([]);
+    setCurrentConversationId(null);
+  };
 
-  // 1. Initial Loading Screen
+  const usedTokens = Math.max(limits.limit_tokens - limits.remaining_tokens, 0);
+  const tokensUsedPct = Math.min(
+    100,
+    Math.max(1, Math.round((usedTokens / Math.max(limits.limit_tokens, 1)) * 100))
+  );
+
+  const userInitials = (currentUser?.name || "U")
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  // 1. Loading Session State
   if (isInitializing) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-white select-none">
+      <div className="flex h-screen w-screen items-center justify-center bg-[#EDEFF7] select-none">
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#FF6B4A] to-[#FF8A65] text-white shadow-lg shadow-orange-500/10 animate-pulse">
-            <Zap className="h-6 w-6 fill-current" />
-          </div>
-          <p className="text-xs text-gray-500 font-medium tracking-wide">Starting GroqChat...</p>
+          <BrandLogo size={48} />
+          <p className="text-xs text-[#7A7E92] font-medium tracking-wide">Starting GroqChat...</p>
         </div>
       </div>
     );
   }
 
-  // 2. Authentication Gate: Clean ChatGPT-style Multi-Method Login Screen
+  // 2. Authentication Gate (Matching Indigo Canvas Design)
   if (!currentUser) {
     return (
-      <div className="flex min-h-screen w-screen items-center justify-center bg-[#FAFAFA] px-4 select-none">
-        <div className="w-full max-w-md rounded-2xl border border-[#E5E5E5] bg-white p-8 shadow-xl shadow-gray-200/50 text-center">
-          {/* Logo & Header */}
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#FF6B4A] to-[#FF8A65] text-white shadow-md shadow-orange-500/20 mb-5">
-            <Zap className="h-7 w-7 fill-current" />
+      <div className="flex min-h-screen w-screen items-center justify-center bg-[#EDEFF7] px-4 select-none">
+        <div className="w-full max-w-md rounded-[28px] bg-white p-8 shadow-[0_1px_2px_rgba(30,30,80,.05),0_24px_48px_-24px_rgba(40,40,120,.22)] text-center">
+          <div className="flex justify-center mb-5">
+            <BrandLogo size={54} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#0D0D0D]">Welcome to GroqChat</h1>
-          <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed">
-            Log in to chat with ultra-fast Groq LPU models, build code, and export PDFs.
+          <h1 className="text-2xl font-bold tracking-tight text-[#12131A]">Welcome to GroqChat</h1>
+          <p className="text-xs text-[#7A7E92] mt-2 mb-6 leading-relaxed">
+            Ultra-fast Groq LPU workspace with AI image generation, code tools, and PDF export.
           </p>
 
           {!showEmailForm ? (
             <div className="space-y-3">
-              {/* Official Google Identity Services Button Container */}
               <div className="flex justify-center min-h-[44px]">
                 <div id="googleSignInContainer" />
               </div>
 
-              {/* Divider */}
               <div className="my-4 flex items-center gap-3">
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">or</span>
-                <div className="flex-1 h-px bg-gray-200" />
+                <div className="flex-1 h-px bg-[#E6E8F2]" />
+                <span className="text-[11px] uppercase tracking-wider text-[#7A7E92] font-medium">
+                  or
+                </span>
+                <div className="flex-1 h-px bg-[#E6E8F2]" />
               </div>
 
-              {/* Sign in with Name & Email Button */}
               <button
                 onClick={() => setShowEmailForm(true)}
-                className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-semibold text-xs py-3 px-4 shadow-2xs transition-all"
+                className="w-full flex items-center justify-center gap-2.5 rounded-2xl border border-[#E6E8F2] bg-white hover:bg-[#F5F6FB] text-[#12131A] font-semibold text-xs py-3 px-4 transition-all"
               >
-                <Mail className="h-4 w-4 text-orange-500" />
-                <span>Continue with Email & Name</span>
+                <Mail className="h-4 w-4 text-[#5B5BFF]" />
+                <span>Continue with Email &amp; Name</span>
               </button>
 
-              {/* Guest / Preview Mode */}
               <button
                 onClick={handleGuestLogin}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs py-2.5 px-4 transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#F5F6FB] hover:bg-[#EEEEFF] text-[#12131A] font-medium text-xs py-2.5 px-4 transition-colors"
               >
-                <User className="h-3.5 w-3.5 text-gray-500" />
+                <User className="h-3.5 w-3.5 text-[#7A7E92]" />
                 <span>Continue as Guest (Instant Preview)</span>
               </button>
             </div>
           ) : (
-            /* Email & Name Form */
             <form onSubmit={handleEmailLogin} className="space-y-3 text-left">
               <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Your Name</label>
+                <label className="text-xs font-semibold text-[#12131A] block mb-1">Your Name</label>
                 <input
                   type="text"
                   required
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   placeholder="e.g. Akshit Negi"
-                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-xs text-gray-900 focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-[#E6E8F2] bg-[#F5F6FB] px-3.5 py-2.5 text-xs text-[#12131A] focus:bg-white focus:border-[#5B5BFF] focus:outline-none transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-gray-700 block mb-1">Email Address</label>
+                <label className="text-xs font-semibold text-[#12131A] block mb-1">
+                  Email Address
+                </label>
                 <input
                   type="email"
                   required
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-xs text-gray-900 focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-[#E6E8F2] bg-[#F5F6FB] px-3.5 py-2.5 text-xs text-[#12131A] focus:bg-white focus:border-[#5B5BFF] focus:outline-none transition-colors"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-[#0D0D0D] hover:bg-gray-800 text-white font-semibold text-xs py-3 px-4 transition-colors shadow-xs"
+                className="w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[#5B5BFF] to-[#B06BFF] text-white font-semibold text-xs py-3 px-4 shadow-md transition-opacity hover:opacity-95"
               >
                 <span>Enter GroqChat</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -1104,22 +1094,21 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setShowEmailForm(false)}
-                className="w-full text-center text-xs text-gray-500 hover:text-gray-900 pt-1"
+                className="w-full text-center text-xs text-[#7A7E92] hover:text-[#12131A] pt-1"
               >
                 ← Back to all options
               </button>
             </form>
           )}
 
-          {/* Security & Feature Badges */}
-          <div className="mt-8 pt-6 border-t border-gray-100 grid grid-cols-2 gap-3 text-left">
-            <div className="flex items-center gap-2 text-[11px] text-gray-500">
-              <Shield className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-              <span>Secure Authentication</span>
+          <div className="mt-8 pt-6 border-t border-[#E6E8F2] grid grid-cols-2 gap-3 text-left">
+            <div className="flex items-center gap-2 text-[11px] text-[#7A7E92]">
+              <Shield className="h-3.5 w-3.5 text-[#14A06B] flex-shrink-0" />
+              <span>Private Workspace</span>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-gray-500">
-              <Zap className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
-              <span>Instant Groq Inference</span>
+            <div className="flex items-center gap-2 text-[11px] text-[#7A7E92]">
+              <Sparkles className="h-3.5 w-3.5 text-[#5B5BFF] flex-shrink-0" />
+              <span>Groq + Flux Images</span>
             </div>
           </div>
         </div>
@@ -1127,105 +1116,718 @@ export default function Home() {
     );
   }
 
-  // 3. Authenticated Chat Application
-  return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white text-[#0D0D0D]">
-      {/* =====================================================================
-          LEFT SIDEBAR: Modern ChatGPT Style Light Sidebar
-      ===================================================================== */}
-      {showLeftSidebar && (
-        <aside className="w-72 flex-shrink-0 flex flex-col justify-between border-r border-[#E5E5E5] bg-[#F9F9F9] p-3.5 select-none transition-all duration-200">
-          <div className="flex flex-col gap-4 overflow-y-auto">
-            {/* Top: New Chat Button & Logo */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-[#FF6B4A] to-[#FF8A65] text-white shadow-sm">
-                  <Zap className="h-4 w-4 fill-current" />
-                </div>
-                <div>
-                  <h1 className="font-semibold text-sm leading-tight text-[#0D0D0D]">GroqChat</h1>
-                  <p className="text-[10px] text-[#71717A]">LPU High Speed</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowLeftSidebar(false)}
-                className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-colors"
-                title="Collapse sidebar"
-              >
-                <PanelLeftClose className="h-4 w-4" />
-              </button>
-            </div>
+  // 3. Main Authenticated Workspace
+  const activeModelObj = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
 
-            {/* "+ New Chat" Button */}
+  return (
+    <div className="relative flex md:grid md:grid-cols-[252px_minmax(0,1fr)] gap-5 h-screen w-screen bg-[#EDEFF7] md:p-3.5 md:pl-1.5 overflow-hidden text-[#12131A]">
+      {/* Mobile Sidebar Backdrop */}
+      {mobileSidebarOpen && (
+        <div
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 bg-black/25 z-20 md:hidden"
+        />
+      )}
+
+      {/* =====================================================================
+          LEFT SIDEBAR (Canvas Floating Navigation + Recent Chats + Profile)
+      ===================================================================== */}
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-30 w-[268px] md:w-auto flex flex-col gap-5 p-4 md:p-3 md:pl-3.5 bg-[#EDEFF7] transition-transform duration-200 select-none overflow-y-auto ${
+          mobileSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        {/* Brand */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <BrandLogo size={40} />
+            <div>
+              <b className="block text-[17px] font-bold tracking-tight leading-tight text-[#12131A]">
+                GroqChat
+              </b>
+              <small className="text-[12px] text-[#7A7E92]">AI workspace</small>
+            </div>
+          </div>
+          <button
+            onClick={() => setMobileSidebarOpen(false)}
+            className="md:hidden p-1.5 rounded-lg text-[#7A7E92] hover:text-[#12131A]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* New Conversation Button */}
+        <button
+          onClick={startNewChat}
+          className="flex items-center gap-2.5 bg-[#12131A] text-white font-semibold text-sm rounded-[14px] px-3.5 py-3 hover:-translate-y-0.5 transition-transform shadow-sm"
+        >
+          <Plus className="h-4 w-4" />
+          <span>New conversation</span>
+          <kbd className="ml-auto text-[11px] font-normal opacity-60">Ctrl K</kbd>
+        </button>
+
+        {/* Workspace Nav */}
+        <nav className="flex flex-col gap-0.5 text-sm">
+          <button
+            onClick={startNewChat}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white text-[#12131A] font-medium shadow-[0_1px_2px_rgba(30,30,80,.08)] text-left"
+          >
+            <MessageSquare className="h-4 w-4 text-[#5B5BFF]" />
+            <span>Chat</span>
+          </button>
+          <button
+            onClick={() => setIsImageMode(!isImageMode)}
+            className={`flex items-center gap-3 px-3 py-2 rounded-xl font-medium transition-colors text-left ${
+              isImageMode
+                ? "bg-[#EEEEFF] text-[#5B5BFF]"
+                : "text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A]"
+            }`}
+          >
+            <ImageIcon className="h-4 w-4" />
+            <span>Image Studio</span>
+          </button>
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center gap-3 px-3 py-2 rounded-xl text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A] font-medium transition-colors text-left"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            <span>Persona &amp; Temp</span>
+          </button>
+        </nav>
+
+        {/* Recent Conversations (Supabase) */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="flex items-center justify-between px-3 pb-1.5">
+            <h2 className="text-[12px] font-medium text-[#7A7E92] opacity-85">Recent</h2>
+            <span className="text-[11px] font-semibold text-[#5B5BFF] bg-[#EEEEFF] px-2 py-0.5 rounded-full">
+              {conversations.length}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-0.5 pr-1">
+            {conversations.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-[#7A7E92]">No saved chats yet</div>
+            ) : (
+              conversations.map((c) => (
+                <div
+                  key={c.id}
+                  onClick={() => selectConversation(c)}
+                  className={`group flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer text-[13.5px] transition-colors ${
+                    currentConversationId === c.id
+                      ? "bg-white text-[#12131A] font-medium shadow-[0_1px_2px_rgba(30,30,80,.06)]"
+                      : "text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A]"
+                  }`}
+                >
+                  <span className="truncate">{c.title || "Untitled Chat"}</span>
+                  <button
+                    onClick={(e) => deleteConversation(e, c.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-[#7A7E92] hover:text-red-500 rounded transition-opacity"
+                    title="Delete chat"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* User Profile Card */}
+        <div className="mt-auto flex items-center gap-2.5 p-2.5 rounded-2xl bg-white shadow-[0_1px_2px_rgba(30,30,80,.06)]">
+          {currentUser?.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={currentUser.image}
+              alt={currentUser.name}
+              className="w-9 h-9 rounded-xl object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-[#EEEEFF] text-[#5B5BFF] grid place-items-center font-semibold text-xs flex-shrink-0">
+              {userInitials}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <b className="block text-[13.5px] font-semibold leading-tight truncate text-[#12131A]">
+              {currentUser?.name}
+            </b>
+            <small className="block text-[11.5px] text-[#7A7E92] truncate">
+              {currentUser?.email}
+            </small>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="p-1.5 rounded-lg text-[#7A7E92] hover:text-red-600 hover:bg-red-50 transition-colors"
+            title="Log out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </aside>
+
+      {/* =====================================================================
+          MAIN FLOATING WHITE PANEL
+      ===================================================================== */}
+      <main className="flex-1 flex flex-col min-w-0 h-full bg-white md:rounded-[28px] shadow-[0_1px_2px_rgba(30,30,80,.05),0_24px_48px_-24px_rgba(40,40,120,.22)] overflow-hidden relative">
+        {/* Top Bar */}
+        <header className="flex items-center gap-2.5 px-4 md:px-6 py-4 select-none border-b border-[#E6E8F2]/60">
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="md:hidden w-9 h-9 rounded-xl grid place-items-center text-[#7A7E92] hover:bg-[#F5F6FB]"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          {/* Model Dropdown */}
+          <div className="relative">
             <button
-              onClick={startNewChat}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-[#E5E5E5] bg-white hover:bg-gray-50 text-xs font-medium text-[#0D0D0D] shadow-xs transition-all"
+              onClick={() => {
+                setShowModelMenu(!showModelMenu);
+                setShowResponseMenu(false);
+              }}
+              className="flex items-center gap-2 font-semibold text-[15px] px-3 py-1.5 rounded-xl hover:bg-[#F5F6FB] transition-colors text-[#12131A]"
             >
-              <span className="flex items-center gap-2">
-                <Plus className="h-4 w-4 text-orange-500" /> New Chat
-              </span>
-              <span className="text-[10px] text-gray-400 font-mono">⌘K</span>
+              <span>{activeModelObj.name}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-[#7A7E92]" />
             </button>
 
-            {/* Response Length Preset Selector (Short / Med / Detailed) */}
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A] mb-1.5 flex items-center gap-1.5">
-                <SlidersHorizontal className="h-3.5 w-3.5" /> Response Length
-              </label>
-              <div className="grid grid-cols-3 gap-1 p-0.5 rounded-lg border border-[#E5E5E5] bg-white">
-                {RESPONSE_LENGTH_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setResponseLength(opt.id as "short" | "medium" | "detailed")}
-                    className={`py-1.5 text-[11px] font-medium rounded-md transition-all ${
-                      responseLength === opt.id
-                        ? "bg-[#0D0D0D] text-white shadow-xs"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
-                  >
-                    {opt.id === "short" ? "Short" : opt.id === "medium" ? "Medium" : "Detailed"}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">
-                {responseLength === "short"
-                  ? "Crisp, concise answers with key points"
-                  : responseLength === "medium"
-                  ? "Balanced, short-to-medium length"
-                  : "Comprehensive deep dives"}
-              </p>
-            </div>
-
-            {/* Model Selector */}
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A] mb-1.5 flex items-center gap-1.5">
-                <Cpu className="h-3.5 w-3.5" /> Model Engine
-              </label>
-              <div className="space-y-1">
+            {showModelMenu && (
+              <div className="absolute left-0 mt-2 w-64 rounded-2xl border border-[#E6E8F2] bg-white p-1.5 shadow-xl z-40">
                 {MODELS.map((m) => (
                   <button
                     key={m.id}
-                    onClick={() => setSelectedModel(m.id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${
+                    onClick={() => {
+                      setSelectedModel(m.id);
+                      setShowModelMenu(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl transition-colors ${
                       selectedModel === m.id
-                        ? "border-[#FF6B4A] bg-orange-50/70 text-[#0D0D0D] font-semibold shadow-xs"
-                        : "border-[#E5E5E5] bg-white hover:bg-gray-50 text-gray-700"
+                        ? "bg-[#EEEEFF] text-[#5B5BFF]"
+                        : "hover:bg-[#F5F6FB] text-[#12131A]"
                     }`}
                   >
-                    <div className="text-xs">{m.name}</div>
-                    <div className="text-[10px] text-gray-500 font-normal">{m.desc}</div>
+                    <div className="text-xs font-semibold">{m.name}</div>
+                    <div className="text-[11px] text-[#7A7E92]">{m.desc}</div>
                   </button>
                 ))}
               </div>
+            )}
+          </div>
+
+          <span className="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-[#F5F6FB] text-[#7A7E92]">
+            Groq LPU
+          </span>
+          <span className="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-[#E3F6EE] text-[#14A06B]">
+            Fast
+          </span>
+
+          <div className="flex-1" />
+
+          {/* Usage & Speed Pill (Toggles Floating Insights Popover) */}
+          <button
+            id="usageToggleBtn"
+            onClick={() => setShowInsights(!showInsights)}
+            aria-expanded={showInsights}
+            className={`flex items-center gap-2 bg-[#F5F6FB] px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              showInsights ? "ring-2 ring-[#5B5BFF]" : "hover:ring-1 hover:ring-[#5B5BFF]"
+            }`}
+          >
+            <span
+              className="w-5 h-5 rounded-full relative flex-shrink-0"
+              style={{
+                background: `conic-gradient(#5B5BFF, #B06BFF ${tokensUsedPct}%, #E6E8F2 0)`,
+              }}
+            >
+              <span className="absolute inset-[4px] rounded-full bg-[#F5F6FB]" />
+            </span>
+            <span className="hidden sm:inline text-[#12131A]">
+              {limits.remaining_tokens.toLocaleString()} left
+            </span>
+          </button>
+
+          {messages.length > 0 && (
+            <button
+              onClick={() => exportAsDoc(messages.map((m) => `[${m.role}]\n${m.content}`).join("\n\n"), "GroqChat_Transcript")}
+              className="w-9 h-9 rounded-xl grid place-items-center text-[#7A7E92] hover:bg-[#F5F6FB] hover:text-[#12131A] transition-colors"
+              title="Export Full Chat"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+          )}
+        </header>
+
+        {/* Scrollable Thread */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-7 pt-7 pb-3">
+          <div className="max-w-[720px] mx-auto flex flex-col gap-8">
+            {isLoadingConversation ? (
+              <div className="flex flex-col items-center justify-center pt-24 text-[#7A7E92] gap-3">
+                <Loader2 className="h-6 w-6 animate-spin text-[#5B5BFF]" />
+                <p className="text-xs font-medium">Loading conversation...</p>
+              </div>
+            ) : messages.length === 0 ? (
+              /* Welcome / Starter Thread */
+              <>
+                <div className="flex gap-3.5 items-start">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#5B5BFF] to-[#B06BFF] text-white grid place-items-center flex-shrink-0 shadow-[0_8px_16px_-8px_rgba(91,91,255,0.6)]">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <h1 className="text-2xl font-semibold tracking-tight leading-snug text-[#12131A] mb-2">
+                      Hello, {currentUser?.name?.split(" ")[0] || "there"}.
+                    </h1>
+                    <p className="text-[#4A4D5E] text-[15px] leading-relaxed mb-4 max-w-[60ch]">
+                      Ask anything, write and download code, export formatted PDFs, or describe an
+                      image to generate it with <b className="font-medium text-[#12131A]">Leonardo Lucid</b>.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:pl-[50px]">
+                  {STARTER_IDEAS.map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => sendMessage(item.prompt)}
+                      className="flex flex-col items-start gap-3 text-left p-4 rounded-[18px] bg-[#F5F6FB] hover:bg-white hover:-translate-y-0.5 hover:ring-2 hover:ring-[#5B5BFF] transition-all"
+                    >
+                      <span className="w-8 h-8 rounded-[11px] bg-white grid place-items-center text-base shadow-2xs">
+                        {item.icon}
+                      </span>
+                      <div>
+                        <b className="block font-medium text-sm text-[#12131A] leading-snug">
+                          {item.title}
+                        </b>
+                        <small className="block text-[#7A7E92] text-xs mt-0.5 font-normal">
+                          {item.desc}
+                        </small>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              messages.map((m) =>
+                m.role === "user" ? (
+                  <div
+                    key={m.id}
+                    className="self-end max-w-[85%] bg-[#12131A] text-white px-5 py-3 rounded-[22px_22px_6px_22px] text-[15px] leading-relaxed shadow-xs"
+                  >
+                    {m.attachment && (
+                      <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] text-white/90">
+                        <Paperclip className="h-3 w-3" />
+                        <span>{m.attachment}</span>
+                      </div>
+                    )}
+                    <div className="whitespace-pre-wrap">{m.content}</div>
+                  </div>
+                ) : (
+                  <div key={m.id} className="flex gap-3.5 items-start">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#5B5BFF] to-[#B06BFF] text-white grid place-items-center flex-shrink-0 shadow-[0_8px_16px_-8px_rgba(91,91,255,0.6)]">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {!m.content && isLoading ? (
+                        <div className="flex gap-1.5 py-3.5">
+                          <i className="w-2 h-2 rounded-full bg-[#5B5BFF] animate-bounce" />
+                          <i className="w-2 h-2 rounded-full bg-[#5B5BFF] animate-bounce [animation-delay:0.15s]" />
+                          <i className="w-2 h-2 rounded-full bg-[#B06BFF] animate-bounce [animation-delay:0.3s]" />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="prose prose-slate prose-sm max-w-none break-words text-[15px] text-[#4A4D5E]">
+                            <ReactMarkdown
+                              urlTransform={(url) => {
+                                if (url.startsWith("data:image/")) return url;
+                                if (/^(https?:|mailto:|tel:|\/|#)/i.test(url)) return url;
+                                return "";
+                              }}
+                              components={{
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                code({ inline, className, children, ...props }: any) {
+                                  const match = /language-(\w+)/.exec(className || "");
+                                  const codeString = String(children).replace(/\n$/, "");
+                                  if (!inline && match) {
+                                    return <CodeBlock language={match[1]} code={codeString} />;
+                                  } else if (!inline && codeString.includes("\n")) {
+                                    return <CodeBlock language="text" code={codeString} />;
+                                  } else {
+                                    return (
+                                      <code
+                                        className="bg-[#F5F6FB] text-[#5B5BFF] px-1.5 py-0.5 rounded text-xs font-mono font-medium"
+                                        {...props}
+                                      >
+                                        {children}
+                                      </code>
+                                    );
+                                  }
+                                },
+                                h1: ({ ...props }) => (
+                                  <h1
+                                    className="text-xl font-semibold tracking-tight mt-2 mb-2 text-[#12131A]"
+                                    {...props}
+                                  />
+                                ),
+                                h2: ({ ...props }) => (
+                                  <h2
+                                    className="text-lg font-semibold mt-2.5 mb-1.5 text-[#12131A]"
+                                    {...props}
+                                  />
+                                ),
+                                h3: ({ ...props }) => (
+                                  <h3
+                                    className="text-base font-semibold mt-2 mb-1 text-[#12131A]"
+                                    {...props}
+                                  />
+                                ),
+                                p: ({ ...props }) => (
+                                  <p className="mb-2.5 leading-relaxed text-[#4A4D5E]" {...props} />
+                                ),
+                                ul: ({ ...props }) => (
+                                  <ul
+                                    className="list-disc list-inside mb-2.5 space-y-1 text-[#4A4D5E]"
+                                    {...props}
+                                  />
+                                ),
+                                ol: ({ ...props }) => (
+                                  <ol
+                                    className="list-decimal list-inside mb-2.5 space-y-1 text-[#4A4D5E]"
+                                    {...props}
+                                  />
+                                ),
+                                strong: ({ ...props }) => (
+                                  <strong className="font-medium text-[#12131A]" {...props} />
+                                ),
+                                blockquote: ({ ...props }) => (
+                                  <blockquote
+                                    className="border-l-4 border-[#5B5BFF]/40 pl-3 italic text-[#7A7E92] my-2"
+                                    {...props}
+                                  />
+                                ),
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                img: ({ src, alt }: any) => (
+                                  <GeneratedImage src={src || ""} alt={alt || "Generated Image"} />
+                                ),
+                              }}
+                            >
+                              {m.content}
+                            </ReactMarkdown>
+                          </div>
+
+                          {m.content && (
+                            <div className="mt-2">
+                              <div className="text-[12px] text-[#7A7E92] mb-1.5">
+                                {activeModelObj.name} ·{" "}
+                                {m.latency ? `${m.latency.toFixed(2)}s` : "Groq LPU"}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1 -ml-2">
+                                <button
+                                  onClick={() => copyToClipboard(m.content, m.id)}
+                                  className="flex items-center gap-1.5 text-xs text-[#7A7E92] hover:bg-[#F5F6FB] hover:text-[#12131A] px-2.5 py-1.5 rounded-lg transition-colors"
+                                >
+                                  {copiedId === m.id ? (
+                                    <>
+                                      <Check className="h-3.5 w-3.5 text-[#14A06B]" />
+                                      <span className="text-[#14A06B] font-medium">Copied</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="h-3.5 w-3.5" />
+                                      <span>Copy</span>
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => exportAsPDF(m.content)}
+                                  className="flex items-center gap-1.5 text-xs text-[#7A7E92] hover:bg-[#F5F6FB] hover:text-[#12131A] px-2.5 py-1.5 rounded-lg transition-colors"
+                                >
+                                  <FileDown className="h-3.5 w-3.5 text-[#5B5BFF]" />
+                                  <span>PDF</span>
+                                </button>
+                                <button
+                                  onClick={() => exportAsDoc(m.content)}
+                                  className="flex items-center gap-1.5 text-xs text-[#7A7E92] hover:bg-[#F5F6FB] hover:text-[#12131A] px-2.5 py-1.5 rounded-lg transition-colors"
+                                >
+                                  <FileText className="h-3.5 w-3.5 text-[#B06BFF]" />
+                                  <span>Doc</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              )
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* Bottom Docked Composer */}
+        <div className="px-4 md:px-7 pt-2 pb-5">
+          <div className="max-w-[720px] mx-auto">
+            {attachment && (
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-[#EEEEFF] px-3 py-1 text-xs text-[#5B5BFF] font-medium">
+                <Paperclip className="h-3.5 w-3.5" />
+                <span>
+                  {attachment.name} ({attachment.size_kb} KB)
+                </span>
+                <button
+                  onClick={() => setAttachment(null)}
+                  className="hover:text-[#12131A] ml-1"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileUpload}
+              accept=".pdf,.txt,.py,.md,.csv,.json,.html"
+              className="hidden"
+            />
+
+            <div className="bg-[#F5F6FB] focus-within:bg-white rounded-[22px] p-3.5 pl-5 pb-2.5 transition-all focus-within:ring-2 focus-within:ring-[#5B5BFF] focus-within:shadow-[0_12px_28px_-16px_rgba(91,91,255,0.45)]">
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (input.trim() && !isLoading) sendMessage();
+                  }
+                }}
+                placeholder={
+                  isImageMode
+                    ? "Describe the image you want to generate…"
+                    : "Ask anything, write code, or generate an image…"
+                }
+                className="w-full border-0 outline-none bg-transparent resize-none text-[15px] text-[#12131A] placeholder:text-[#9A9DB0] py-1 pb-2 max-h-[140px]"
+              />
+
+              <div className="flex items-center gap-1.5 -ml-2 relative">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flex items-center gap-1.5 text-[13px] text-[#7A7E92] hover:bg-[#5B5BFF]/10 hover:text-[#5B5BFF] px-3 py-1.5 rounded-full transition-colors"
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                  <span>{isUploading ? "Reading..." : "Attach"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsImageMode(!isImageMode)}
+                  className={`flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-full transition-colors ${
+                    isImageMode
+                      ? "bg-[#EEEEFF] text-[#5B5BFF] font-medium"
+                      : "text-[#7A7E92] hover:bg-[#5B5BFF]/10 hover:text-[#5B5BFF]"
+                  }`}
+                >
+                  <ImageIcon className="h-3.5 w-3.5" />
+                  <span>{isImageMode ? "Image ON" : "Image"}</span>
+                </button>
+
+                {/* Quick Response Length Picker */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowResponseMenu(!showResponseMenu);
+                      setShowModelMenu(false);
+                    }}
+                    className="hidden sm:flex items-center gap-1.5 text-[13px] text-[#7A7E92] hover:bg-[#5B5BFF]/10 hover:text-[#5B5BFF] px-3 py-1.5 rounded-full transition-colors"
+                  >
+                    <Cpu className="h-3.5 w-3.5" />
+                    <span className="capitalize">{responseLength}</span>
+                  </button>
+
+                  {showResponseMenu && (
+                    <div className="absolute bottom-11 left-0 w-40 rounded-2xl border border-[#E6E8F2] bg-white p-1.5 shadow-xl z-40">
+                      {RESPONSE_LENGTH_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            setResponseLength(opt.id as "short" | "medium" | "detailed");
+                            setShowResponseMenu(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium ${
+                            responseLength === opt.id
+                              ? "bg-[#EEEEFF] text-[#5B5BFF]"
+                              : "text-[#12131A] hover:bg-[#F5F6FB]"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => sendMessage()}
+                  disabled={!input.trim() || isLoading}
+                  aria-label="Send"
+                  className="ml-auto w-10 h-10 rounded-[14px] bg-gradient-to-br from-[#5B5BFF] to-[#B06BFF] text-white grid place-items-center shadow-[0_8px_16px_-8px_rgba(91,91,255,0.7)] hover:-translate-y-0.5 disabled:opacity-35 disabled:hover:translate-y-0 transition-all"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Temperature Slider */}
+            <p className="text-center text-[12px] text-[#7A7E92] mt-2.5">
+              GroqChat may make mistakes. Verify important information.
+            </p>
+          </div>
+        </div>
+      </main>
+
+      {/* =====================================================================
+          FLOATING INSIGHTS POPOVER (Quota Ring + Speed Sparkline + Quick Tools)
+      ===================================================================== */}
+      {showInsights && (
+        <aside
+          ref={insightsRef}
+          className="fixed top-[72px] right-4 md:right-7 w-[330px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-96px)] z-40 flex flex-col overflow-y-auto bg-white rounded-[22px] px-4.5 py-2 shadow-[0_0_0_1px_#E6E8F2,0_28px_60px_-20px_rgba(40,40,120,.35)]"
+        >
+          <div className="p-4 border-b border-[#E6E8F2]">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[13px] font-semibold text-[#7A7E92]">
+                Live quota · {activeModelObj.name}
+              </h2>
+              <button
+                onClick={syncLimits}
+                className="p-1 rounded-lg text-[#7A7E92] hover:bg-[#F5F6FB] hover:text-[#12131A]"
+                title="Refresh limits"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex items-center gap-4">
+              <div
+                className="w-[84px] h-[84px] rounded-full flex-none grid place-items-center"
+                style={{
+                  background: `conic-gradient(#5B5BFF, #B06BFF ${tokensUsedPct}%, #E6E8F2 0)`,
+                }}
+              >
+                <div className="w-[66px] h-[66px] rounded-full bg-white grid place-items-center font-semibold text-sm text-[#12131A]">
+                  {tokensUsedPct}%
+                </div>
+              </div>
+              <div>
+                <b className="block text-2xl font-bold tracking-tight leading-tight text-[#12131A]">
+                  {limits.remaining_tokens.toLocaleString()}
+                </b>
+                <small className="block text-xs text-[#7A7E92] mt-0.5">
+                  tokens left · {usedTokens.toLocaleString()} of{" "}
+                  {limits.limit_tokens.toLocaleString()} used
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 border-b border-[#E6E8F2]">
+            <h2 className="text-[13px] font-semibold text-[#7A7E92] mb-2">Speed</h2>
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <b className="text-2xl font-bold tracking-tight text-[#14A06B] leading-none">
+                  {lastLatency ? `${lastLatency.toFixed(2)}s` : "—"}
+                </b>
+                <small className="block text-xs text-[#7A7E92] mt-1.5">
+                  Est. session: ~{sessionTokens.toLocaleString()} tokens
+                </small>
+              </div>
+              <svg viewBox="0 0 130 44" fill="none" className="w-[120px] h-[40px]">
+                <defs>
+                  <linearGradient id="sparkLineGrad" x1="0" x2="1">
+                    <stop offset="0%" stopColor="#5B5BFF" />
+                    <stop offset="100%" stopColor="#B06BFF" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M2 34 C14 30 18 14 30 20 S48 38 60 26 S78 6 92 16 S112 30 128 8"
+                  stroke="url(#sparkLineGrad)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+          </div>
+
+          <div className="p-3 space-y-1">
+            <button
+              onClick={() => {
+                setShowSettingsModal(true);
+                setShowInsights(false);
+              }}
+              className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-[#F5F6FB] text-sm font-medium text-[#12131A] text-left"
+            >
+              <SlidersHorizontal className="h-4 w-4 text-[#5B5BFF]" />
+              <span>Persona &amp; Temperature</span>
+            </button>
+            <button
+              onClick={() => {
+                exportAsDoc(
+                  messages.map((m) => `[${m.role}]\n${m.content}`).join("\n\n"),
+                  "GroqChat_Transcript"
+                );
+                setShowInsights(false);
+              }}
+              className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-[#F5F6FB] text-sm font-medium text-[#12131A] text-left"
+            >
+              <Download className="h-4 w-4 text-[#5B5BFF]" />
+              <span>Export conversation</span>
+            </button>
+            <button
+              onClick={() => {
+                startNewChat();
+                setShowInsights(false);
+              }}
+              className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-red-50 text-sm font-medium text-red-600 text-left"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Clear current thread</span>
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* =====================================================================
+          PERSONA & TEMPERATURE MODAL
+      ===================================================================== */}
+      {showSettingsModal && (
+        <div
+          onClick={() => setShowSettingsModal(false)}
+          className="fixed inset-0 bg-black/30 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white rounded-[24px] p-6 shadow-2xl border border-[#E6E8F2] space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#12131A]">Workspace Settings</h3>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="p-1.5 rounded-lg text-[#7A7E92] hover:bg-[#F5F6FB]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
             <div>
-              <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-[#71717A] mb-1.5">
-                <span className="flex items-center gap-1.5">
-                  <Sliders className="h-3.5 w-3.5" /> Temperature
-                </span>
-                <span className="text-gray-900 font-mono">{temperature}</span>
+              <div className="flex items-center justify-between text-xs font-semibold text-[#7A7E92] mb-1.5">
+                <span>Temperature</span>
+                <span className="font-mono text-[#12131A]">{temperature}</span>
               </div>
               <input
                 type="range"
@@ -1234,688 +1836,30 @@ export default function Home() {
                 step="0.05"
                 value={temperature}
                 onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                className="w-full accent-[#FF6B4A] cursor-pointer"
+                className="w-full accent-[#5B5BFF] cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                <span>Direct (0.0)</span>
-                <span>Creative (1.0)</span>
-              </div>
             </div>
 
-            {/* System Persona Customization */}
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A] mb-1.5 block">
+              <label className="text-xs font-semibold text-[#7A7E92] block mb-1.5">
                 System Persona
               </label>
               <textarea
+                rows={4}
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
-                rows={2}
-                className="w-full rounded-lg border border-[#E5E5E5] bg-white p-2 text-xs text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none resize-none"
+                className="w-full rounded-xl border border-[#E6E8F2] bg-[#F5F6FB] p-3 text-xs text-[#12131A] focus:bg-white focus:border-[#5B5BFF] focus:outline-none resize-none"
               />
             </div>
 
-            {/* File Attachment */}
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A] mb-1.5 flex items-center gap-1.5">
-                <Paperclip className="h-3.5 w-3.5" /> Attach Document
-              </label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                onChange={handleFileUpload}
-                accept=".pdf,.txt,.py,.md,.csv,.json,.html"
-                className="hidden"
-              />
-              {attachment ? (
-                <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                  <div className="flex items-center gap-2 truncate">
-                    <FileText className="h-4 w-4 flex-shrink-0 text-blue-600" />
-                    <span className="truncate font-medium">{attachment.name}</span>
-                    <span className="text-[10px] text-blue-600">({attachment.size_kb} KB)</span>
-                  </div>
-                  <button onClick={() => setAttachment(null)} className="text-blue-500 hover:text-blue-700">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="w-full rounded-lg border border-dashed border-[#D1D5DB] bg-white hover:bg-gray-50 py-2.5 text-xs text-gray-600 hover:text-gray-900 transition-all flex items-center justify-center gap-2 shadow-2xs"
-                >
-                  <Paperclip className="h-3.5 w-3.5 text-orange-500" />
-                  {isUploading ? "Extracting text..." : "Upload PDF, Code, or Text"}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Sidebar Footer: User Profile & Actions */}
-          <div className="border-t border-[#E5E5E5] pt-3 space-y-2.5">
-            {/* User Profile Bar */}
-            <div className="flex items-center justify-between p-2 rounded-lg bg-white border border-[#E5E5E5]">
-              <div className="flex items-center gap-2 truncate">
-                {currentUser?.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={currentUser.image}
-                    alt="User"
-                    className="h-7 w-7 rounded-full object-cover border border-gray-200"
-                  />
-                ) : (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-orange-600 font-bold text-xs">
-                    {currentUser?.name?.[0]?.toUpperCase() || "U"}
-                  </div>
-                )}
-                <div className="truncate text-left">
-                  <div className="text-xs font-semibold text-gray-900 truncate leading-tight">
-                    {currentUser?.name || "User"}
-                  </div>
-                  <div className="text-[10px] text-gray-500 truncate leading-tight">
-                    {currentUser?.email || ""}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                title="Log out"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-              </button>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setMessages([])}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 transition-all"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Clear
-              </button>
-              <button
-                onClick={exportChat}
-                disabled={messages.length === 0}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40 transition-all"
-              >
-                <Download className="h-3.5 w-3.5" /> Export All
-              </button>
-            </div>
-          </div>
-        </aside>
-      )}
-
-      {/* =====================================================================
-          CENTER: ChatGPT Conversation Area (White Theme)
-      ===================================================================== */}
-      <main className="flex-1 flex flex-col justify-between overflow-hidden relative bg-white">
-        {/* Top Navbar */}
-        <header className="h-14 border-b border-[#E5E5E5] bg-white/90 backdrop-blur-md px-4 md:px-6 flex items-center justify-between select-none">
-          <div className="flex items-center gap-3">
-            {!showLeftSidebar && (
-              <button
-                onClick={() => setShowLeftSidebar(true)}
-                className="p-1.5 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                title="Open sidebar"
-              >
-                <PanelLeftOpen className="h-5 w-5" />
-              </button>
-            )}
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-[#0D0D0D]">
-                {MODELS.find((m) => m.id === selectedModel)?.name}
-              </span>
-              <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600 font-mono">
-                Groq LPU
-              </span>
-              <span className="hidden sm:inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
-                {responseLength === "short" ? "Crisp Short" : responseLength === "medium" ? "Med Length" : "Detailed"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {lastLatency !== null && (
-              <span className="hidden sm:flex text-xs text-gray-500 items-center gap-1">
-                <Zap className="h-3.5 w-3.5 text-orange-500" />
-                {lastLatency.toFixed(2)}s latency
-              </span>
-            )}
-
-            {/* Toggle History & Quota Panel Button */}
             <button
-              onClick={() => setShowRightPanel(!showRightPanel)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                showRightPanel
-                  ? "bg-orange-50 border-orange-200 text-orange-800 shadow-2xs"
-                  : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-              }`}
-              title="Toggle Recent Chats & Quota"
+              onClick={() => setShowSettingsModal(false)}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-br from-[#5B5BFF] to-[#B06BFF] text-white text-xs font-semibold"
             >
-              <MessageSquare className="h-3.5 w-3.5 text-orange-500" />
-              <span className="hidden sm:inline">Recent Chats</span>
-              <span className="bg-orange-100 text-orange-600 px-1.5 py-0.2 rounded-full text-[10px] font-semibold">
-                {conversations.length}
-              </span>
-              {showRightPanel ? (
-                <PanelRightClose className="h-3.5 w-3.5 text-gray-400" />
-              ) : (
-                <PanelRightOpen className="h-3.5 w-3.5 text-gray-400" />
-              )}
+              Done
             </button>
-
-            {/* Top Right User Profile Avatar / Logo (Like ChatGPT / Google) */}
-            <div className="relative" ref={userMenuRef}>
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-1.5 p-0.5 rounded-full hover:ring-2 hover:ring-orange-400/50 transition-all focus:outline-none"
-                title={`${currentUser?.name || "User"} (${currentUser?.email || ""})`}
-              >
-                {currentUser?.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={currentUser.image}
-                    alt={currentUser?.name || "User"}
-                    className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-200"
-                  />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-[#FF6B4A] to-[#FF8A65] text-white font-bold text-xs shadow-xs ring-2 ring-gray-200">
-                    {currentUser?.name?.[0]?.toUpperCase() || "U"}
-                  </div>
-                )}
-              </button>
-
-              {/* User Profile Dropdown Menu */}
-              {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-[#E5E5E5] bg-white p-3 shadow-xl z-50 animate-in fade-in slide-in-from-top-2">
-                  <div className="flex items-center gap-3 p-2 rounded-xl bg-gray-50 border border-gray-100 mb-2">
-                    {currentUser?.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={currentUser.image}
-                        alt="Profile"
-                        className="h-9 w-9 rounded-full object-cover border border-gray-200"
-                      />
-                    ) : (
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-100 text-orange-600 font-bold text-sm">
-                        {currentUser?.name?.[0]?.toUpperCase() || "U"}
-                      </div>
-                    )}
-                    <div className="truncate text-left">
-                      <div className="text-xs font-semibold text-gray-900 truncate">
-                        {currentUser?.name || "User"}
-                      </div>
-                      <div className="text-[11px] text-gray-500 truncate">
-                        {currentUser?.email || ""}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="px-2 py-1 mb-2 text-[10px] text-emerald-700 font-medium bg-emerald-50 rounded-lg border border-emerald-200 flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Logged in as: {currentUser?.name}</span>
-                  </div>
-
-                  <div className="space-y-1 text-xs">
-                    <button
-                      onClick={() => {
-                        setShowRightPanel(!showRightPanel);
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      <span className="flex items-center gap-2">
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Quota Monitor
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-mono">
-                        {showRightPanel ? "Open" : "Closed"}
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setMessages([]);
-                        setAttachment(null);
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      <Plus className="h-3.5 w-3.5 text-orange-500" /> New Chat
-                    </button>
-                  </div>
-
-                  <div className="my-2 border-t border-gray-100" />
-
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      handleSignOut();
-                    }}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-red-600 hover:bg-red-50 text-xs font-medium transition-colors"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Log out</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* Message List */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
-          {isLoadingConversation ? (
-            <div className="flex flex-col items-center justify-center pt-24 text-gray-400 gap-3">
-              <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
-              <p className="text-xs font-medium">Loading chat history from Supabase...</p>
-            </div>
-          ) : messages.length === 0 ? (
-            /* Welcome / Starter View */
-            <div className="max-w-2xl mx-auto pt-12 md:pt-16 text-center select-none">
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#FF6B4A] to-[#FF8A65] text-white shadow-lg shadow-orange-500/10 mb-4">
-                <Sparkles className="h-7 w-7" />
-              </div>
-              <h2 className="text-2xl font-bold text-[#0D0D0D] tracking-tight mb-2">
-                Hello, {currentUser?.name?.split(" ")[0] || "there"}! What can I help with?
-              </h2>
-              <p className="text-sm text-gray-500 max-w-md mx-auto mb-8">
-                Fast responses powered by Groq LPUs. Easily build code, generate documents, and export to PDF.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left">
-                {STARTER_PROMPTS.map((card, i) => (
-                  <button
-                    key={i}
-                    onClick={() => sendMessage(card.prompt)}
-                    className="p-3.5 rounded-xl border border-[#E5E5E5] bg-white hover:bg-gray-50 hover:border-gray-300 shadow-2xs transition-all text-left group"
-                  >
-                    <div className="text-xl mb-1.5">{card.icon}</div>
-                    <div className="text-xs font-semibold text-[#0D0D0D] group-hover:text-orange-600 transition-colors">
-                      {card.title}
-                    </div>
-                    <div className="text-[11px] text-gray-500">{card.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            /* Chat Bubbles */
-            messages.map((m) => (
-              <div
-                key={m.id}
-                className={`flex gap-3 max-w-3xl mx-auto ${
-                  m.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                {m.role === "assistant" && (
-                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#FF6B4A] to-[#FF8A65] text-white shadow-xs mt-1">
-                    <Zap className="h-3.5 w-3.5 fill-current" />
-                  </div>
-                )}
-
-                <div
-                  className={`group relative max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-[#F4F4F4] text-[#0D0D0D] rounded-br-sm"
-                      : "bg-white border border-[#E5E5E5] text-[#0D0D0D] rounded-bl-sm shadow-xs"
-                  }`}
-                >
-                  {m.attachment && (
-                    <div className="mb-2 inline-flex items-center gap-1.5 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs text-blue-700">
-                      <Paperclip className="h-3 w-3" />
-                      <span>{m.attachment}</span>
-                    </div>
-                  )}
-
-                  {/* Clean Markdown Display with Custom CodeBlock */}
-                  <div className="prose prose-slate prose-sm max-w-none break-words">
-                    <ReactMarkdown
-                      urlTransform={(url) => {
-                        if (url.startsWith("data:image/")) return url;
-                        if (/^(https?:|mailto:|tel:|\/|#)/i.test(url)) return url;
-                        return "";
-                      }}
-                      components={{
-                        // Custom Code Renderer with 1-click Download & Copy
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        code({ inline, className, children, ...props }: any) {
-                          const match = /language-(\w+)/.exec(className || "");
-                          const codeString = String(children).replace(/\n$/, "");
-                          if (!inline && match) {
-                            return <CodeBlock language={match[1]} code={codeString} />;
-                          } else if (!inline && codeString.includes("\n")) {
-                            return <CodeBlock language="text" code={codeString} />;
-                          } else {
-                            return (
-                              <code
-                                className="bg-gray-100 text-pink-600 px-1.5 py-0.5 rounded text-xs font-mono font-medium"
-                                {...props}
-                              >
-                                {children}
-                              </code>
-                            );
-                          }
-                        },
-                        h1: ({ ...props }) => <h1 className="text-lg font-bold mt-3 mb-1 text-gray-900" {...props} />,
-                        h2: ({ ...props }) => <h2 className="text-base font-bold mt-2.5 mb-1 text-gray-900" {...props} />,
-                        h3: ({ ...props }) => <h3 className="text-sm font-semibold mt-2 mb-1 text-gray-800" {...props} />,
-                        p: ({ ...props }) => <p className="mb-2 leading-relaxed text-gray-800" {...props} />,
-                        ul: ({ ...props }) => <ul className="list-disc list-inside mb-2 space-y-1 text-gray-800" {...props} />,
-                        ol: ({ ...props }) => <ol className="list-decimal list-inside mb-2 space-y-1 text-gray-800" {...props} />,
-                        li: ({ ...props }) => <li className="leading-relaxed" {...props} />,
-                        strong: ({ ...props }) => <strong className="font-semibold text-gray-900" {...props} />,
-                        blockquote: ({ ...props }) => (
-                          <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 my-2" {...props} />
-                        ),
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        img: ({ src, alt }: any) => (
-                          <GeneratedImage src={src || ""} alt={alt || "Generated Image"} />
-                        ),
-                      }}
-                    >
-                      {m.content}
-                    </ReactMarkdown>
-                  </div>
-
-                  {/* Document & File Building Action Bar on Assistant Messages */}
-                  {m.role === "assistant" && m.content && (
-                    <div className="mt-3 flex flex-wrap items-center justify-between pt-2 border-t border-gray-100 text-[11px] text-gray-500 gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-gray-600">⚡ {m.latency ? `${m.latency.toFixed(2)}s` : "Groq LPU"}</span>
-                      </div>
-
-                      {/* File Generation / Export Action Buttons */}
-                      <div className="flex items-center gap-2">
-                        {/* Export as PDF */}
-                        <button
-                          onClick={() => exportAsPDF(m.content)}
-                          className="flex items-center gap-1 px-2 py-1 rounded bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors shadow-2xs"
-                          title="Generate and download formatted PDF"
-                        >
-                          <FileDown className="h-3 w-3 text-red-500" />
-                          <span>PDF</span>
-                        </button>
-
-                        {/* Export as Word / Doc */}
-                        <button
-                          onClick={() => exportAsDoc(m.content)}
-                          className="flex items-center gap-1 px-2 py-1 rounded bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors shadow-2xs"
-                          title="Generate and download Word Document (.doc)"
-                        >
-                          <FileText className="h-3 w-3 text-blue-500" />
-                          <span>Doc</span>
-                        </button>
-
-                        {/* Copy Text */}
-                        <button
-                          onClick={() => copyToClipboard(m.content, m.id)}
-                          className="flex items-center gap-1 px-2 py-1 rounded bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors shadow-2xs"
-                        >
-                          {copiedId === m.id ? (
-                            <>
-                              <Check className="h-3 w-3 text-emerald-600" />
-                              <span className="text-emerald-600 font-medium">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="h-3 w-3" />
-                              <span>Copy</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Floating ChatGPT Style Rounded Pill Input Bar */}
-        <div className="p-4 bg-gradient-to-t from-white via-white/95 to-transparent">
-          <div className="max-w-3xl mx-auto">
-            {attachment && (
-              <div className="mb-2 inline-flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs text-blue-800">
-                <Paperclip className="h-3.5 w-3.5 text-blue-600" />
-                <span>
-                  Attached file: <b>{attachment.name}</b> ({attachment.size_kb} KB)
-                </span>
-                <button onClick={() => setAttachment(null)} className="text-blue-600 hover:text-blue-900 ml-1">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-            <div className="relative flex items-center rounded-3xl border border-[#D1D5DB] bg-[#F4F4F4] focus-within:bg-white focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-200/50 shadow-xs transition-all">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="ml-2.5 p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-colors"
-                title="Attach PDF, code, or text document"
-              >
-                <Paperclip className="h-4 w-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsImageMode(!isImageMode)}
-                className={`ml-1 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                  isImageMode
-                    ? "bg-orange-100 text-orange-700 border border-orange-300 shadow-2xs"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-200"
-                }`}
-                title="Toggle AI Image Generation Mode"
-              >
-                <ImageIcon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{isImageMode ? "Image ON" : "Image"}</span>
-              </button>
-
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                placeholder={
-                  isImageMode
-                    ? "Describe the image you want to generate..."
-                    : "Ask anything, write code, or type /imagine <prompt>..."
-                }
-                className="w-full bg-transparent px-3 py-3.5 text-sm text-[#0D0D0D] placeholder-gray-500 focus:outline-none pr-14"
-              />
-
-              <div className="absolute right-2 flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => sendMessage()}
-                  disabled={!input.trim() || isLoading}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0D0D0D] text-white hover:bg-gray-800 disabled:opacity-20 disabled:hover:bg-[#0D0D0D] transition-all shadow-xs"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-            <p className="text-center text-[11px] text-gray-400 mt-2">
-              GroqChat may make mistakes. Verify important information.
-            </p>
           </div>
         </div>
-      </main>
-
-      {/* =====================================================================
-          RIGHT PANEL: Recent Chats (Supabase) + Live Quota Monitor
-      ===================================================================== */}
-      {showRightPanel && (
-        <aside className="w-80 flex-shrink-0 border-l border-[#E5E5E5] bg-[#F9F9F9] p-3.5 flex flex-col justify-between overflow-y-auto select-none transition-all duration-200">
-          <div className="space-y-4">
-            {/* Header: Title + Close Button */}
-            <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-orange-500" />
-                <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800">
-                  Recent Chats
-                </h2>
-                <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.2 rounded-full font-semibold">
-                  {conversations.length}
-                </span>
-              </div>
-              <button
-                onClick={() => setShowRightPanel(false)}
-                className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-colors"
-                title="Close panel"
-              >
-                <PanelRightClose className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* "+ New Chat" Action Button */}
-            <button
-              onClick={startNewChat}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white border border-[#E5E5E5] hover:bg-gray-50 text-xs font-semibold text-[#0D0D0D] shadow-2xs transition-all hover:border-gray-300"
-            >
-              <Plus className="h-4 w-4 text-orange-500" />
-              <span>Start New Chat</span>
-            </button>
-
-            {/* List of Saved Supabase Conversations */}
-            <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-              {conversations.length === 0 ? (
-                <div className="px-3 py-6 text-center text-xs text-gray-400 bg-white rounded-xl border border-dashed border-gray-200">
-                  <p className="font-medium">No saved chats yet</p>
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    Send a message to automatically save your conversation.
-                  </p>
-                </div>
-              ) : (
-                conversations.map((c) => (
-                  <div
-                    key={c.id}
-                    onClick={() => selectConversation(c)}
-                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-xs transition-all ${
-                      currentConversationId === c.id
-                        ? "bg-white text-gray-900 font-semibold shadow-xs border border-orange-300"
-                        : "text-gray-600 hover:bg-white/80 hover:text-gray-900 border border-transparent"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-gray-400 group-hover:text-orange-500" />
-                      <div className="truncate text-left">
-                        <div className="truncate font-medium">{c.title || "Untitled Chat"}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">
-                          {new Date(c.updated_at).toLocaleDateString([], {
-                            month: "short",
-                            day: "numeric",
-                          })}{" "}
-                          •{" "}
-                          {new Date(c.updated_at).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={(e) => deleteConversation(e, c.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-opacity"
-                      title="Delete chat"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-gray-200 my-2" />
-
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" /> Live Quota Monitor
-              </h2>
-              <button
-                onClick={syncLimits}
-                className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200"
-                title="Sync with Groq servers"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <p className="text-[11px] text-gray-500">
-              Active limits for <code className="text-gray-800 font-semibold">{selectedModel}</code>
-            </p>
-
-            {/* Tokens Per Minute Card */}
-            <div className="rounded-xl border border-[#E5E5E5] bg-white p-3.5 space-y-2 shadow-2xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-gray-600">
-                <span>Tokens / Min (TPM)</span>
-                <span className="text-gray-900 font-mono">{limits.remaining_tokens.toLocaleString()} left</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${tokensPercent}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[11px] text-gray-500">
-                <span>{limits.limit_tokens - limits.remaining_tokens} used</span>
-                <span>Limit: {limits.limit_tokens.toLocaleString()}</span>
-              </div>
-              <div className="text-[10px] text-emerald-700 pt-1 border-t border-gray-100">
-                ⏱️ Quota resets in: <b>{limits.reset_tokens}</b>
-              </div>
-            </div>
-
-            {/* Requests Card */}
-            <div className="rounded-xl border border-[#E5E5E5] bg-white p-3.5 space-y-2 shadow-2xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-gray-600">
-                <span>Requests (RPM/RPD)</span>
-                <span className="text-gray-900 font-mono">{limits.remaining_requests.toLocaleString()} left</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${reqPercent}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[11px] text-gray-500">
-                <span>{limits.limit_requests - limits.remaining_requests} used</span>
-                <span>Limit: {limits.limit_requests.toLocaleString()}</span>
-              </div>
-              <div className="text-[10px] text-blue-700 pt-1 border-t border-gray-100">
-                ⏱️ Quota resets in: <b>{limits.reset_requests}</b>
-              </div>
-            </div>
-
-            {/* Session Stats */}
-            <div className="rounded-xl border border-[#E5E5E5] bg-white p-3.5 space-y-3 shadow-2xs">
-              <div className="text-xs font-semibold text-gray-700">⚡ Session Analytics</div>
-              <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="rounded-lg bg-gray-50 p-2 border border-gray-200">
-                  <div className="text-lg font-bold text-gray-900">{messages.length}</div>
-                  <div className="text-[10px] text-gray-500">Messages</div>
-                </div>
-                <div className="rounded-lg bg-gray-50 p-2 border border-gray-200">
-                  <div className="text-lg font-bold text-gray-900">
-                    {lastLatency ? `${lastLatency.toFixed(2)}s` : "0s"}
-                  </div>
-                  <div className="text-[10px] text-gray-500">Avg Speed</div>
-                </div>
-              </div>
-              <div className="text-[11px] text-gray-500 text-center pt-1 border-t border-gray-100">
-                Est. Session Usage: <b className="text-gray-900">~{sessionTokens.toLocaleString()} tokens</b>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={syncLimits}
-            className="w-full py-2 rounded-lg bg-white hover:bg-gray-100 border border-[#E5E5E5] text-xs font-medium text-gray-800 flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh Server Limits
-          </button>
-        </aside>
       )}
     </div>
   );
