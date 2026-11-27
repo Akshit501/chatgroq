@@ -236,10 +236,24 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 }
 
 function GeneratedImage({ src, alt }: { src: string; alt: string }) {
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(src.startsWith("data:image/"));
+  const [hasError, setHasError] = useState(!src);
   const [downloading, setDownloading] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    if (!src) {
+      setHasError(true);
+      return;
+    }
+    setHasError(false);
+    if (src.startsWith("data:image/") || imgRef.current?.complete) {
+      setLoaded(true);
+    }
+  }, [src]);
 
   const handleDownload = async () => {
+    if (!src) return;
     setDownloading(true);
     try {
       const res = await fetch(src);
@@ -259,21 +273,29 @@ function GeneratedImage({ src, alt }: { src: string; alt: string }) {
 
   return (
     <div className="my-3 max-w-md rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm">
-      {!loaded && (
+      {!loaded && !hasError && (
         <div className="h-64 w-full flex flex-col items-center justify-center gap-2 text-xs text-gray-500 animate-pulse bg-gray-100">
           <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
           <span>Rendering image...</span>
         </div>
       )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt || "Generated AI Image"}
-        onLoad={() => setLoaded(true)}
-        className={`w-full h-auto object-cover transition-opacity duration-300 ${
-          loaded ? "opacity-100" : "opacity-0 h-0"
-        }`}
-      />
+      {hasError ? (
+        <div className="h-40 w-full flex items-center justify-center text-xs text-red-500 bg-red-50 px-4 text-center">
+          Could not render image. Please try another prompt.
+        </div>
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          ref={imgRef}
+          src={src}
+          alt={alt || "Generated AI Image"}
+          onLoad={() => setLoaded(true)}
+          onError={() => setHasError(true)}
+          className={`w-full h-auto object-cover transition-opacity duration-300 ${
+            loaded ? "opacity-100" : "opacity-0 h-0"
+          }`}
+        />
+      )}
       <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-gray-100 text-[11px] text-gray-600">
         <span className="truncate pr-2 font-medium">{alt || "AI Generated Image"}</span>
         <button
@@ -1549,6 +1571,11 @@ export default function Home() {
                   {/* Clean Markdown Display with Custom CodeBlock */}
                   <div className="prose prose-slate prose-sm max-w-none break-words">
                     <ReactMarkdown
+                      urlTransform={(url) => {
+                        if (url.startsWith("data:image/")) return url;
+                        if (/^(https?:|mailto:|tel:|\/|#)/i.test(url)) return url;
+                        return "";
+                      }}
                       components={{
                         // Custom Code Renderer with 1-click Download & Copy
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
