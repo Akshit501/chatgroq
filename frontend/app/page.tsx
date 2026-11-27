@@ -629,43 +629,58 @@ export default function Home() {
 
     const startTime = performance.now();
 
-    // Check if user wants Image Generation (via toggle or /imagine /image command)
-    const lowerText = textToSend.trim().toLowerCase();
-    const isImagineCmd = lowerText.startsWith("/imagine ") || lowerText.startsWith("/image ");
-    const shouldGenerateImage = isImageMode || isImagineCmd;
+    // Auto-detect ChatGPT-style natural image requests (or explicit toggle / slash command)
+    const trimmedText = textToSend.trim();
+    const isImagineCmd = /^\/(imagine|image)\s+/i.test(trimmedText);
+    const isNaturalImageRequest =
+      /^(please\s+|can you\s+|could you\s+)?(generate|create|make|draw|paint|design|render|illustrate|show me)\s+(an?\s+)?(image|picture|photo|illustration|art|artwork|logo|icon|wallpaper|poster|sketch)\b/i.test(
+        trimmedText
+      ) || /^(draw|paint|sketch)\s+(me\s+)?(an?\s+)?/i.test(trimmedText);
+    const shouldGenerateImage = isImageMode || isImagineCmd || isNaturalImageRequest;
 
     if (shouldGenerateImage) {
-      const cleanPrompt = textToSend
-        .trim()
+      const cleanPrompt = trimmedText
         .replace(/^\/(imagine|image)\s+/i, "")
-        .trim();
+        .replace(
+          /^(please\s+|can you\s+|could you\s+)?(generate|create|make|draw|paint|design|render|illustrate|show me)\s+(me\s+)?(an?\s+)?(image|picture|photo|illustration|art|artwork|wallpaper|poster|sketch)\s+(of\s+)?/i,
+          ""
+        )
+        .trim() || trimmedText;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMessageId ? { ...m, content: "🎨 *Creating image...*" } : m
+        )
+      );
 
       try {
         let imageUrl = "";
+        let enhancedPrompt = cleanPrompt;
         let latency = 0;
 
         try {
           const imgRes = await fetch(`${API_BASE_URL}/api/generate-image`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: cleanPrompt }),
+            body: JSON.stringify({ prompt: cleanPrompt, enhance: true }),
           });
           if (imgRes.ok) {
             const imgData = await imgRes.json();
             imageUrl = imgData.image_url;
+            enhancedPrompt = imgData.enhanced_prompt || cleanPrompt;
             latency = imgData.latency || (performance.now() - startTime) / 1000;
           }
         } catch {
-          // Fallback directly to zero-key Pollinations endpoint if backend is waking up
+          // Fallback directly to zero-key Pollinations Flux endpoint if backend is waking up
         }
 
         if (!imageUrl) {
           const seed = Math.floor(Math.random() * 9999999) + 1;
-          imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true`;
+          imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=1024&height=1024&seed=${seed}&model=flux&nologo=true`;
           latency = (performance.now() - startTime) / 1000;
         }
 
-        const assistantText = `Here is your generated image for **"${cleanPrompt}"**:\n\n![${cleanPrompt}](${imageUrl})`;
+        const assistantText = `![${cleanPrompt}](${imageUrl})\n\n*Prompt:* ${enhancedPrompt}`;
         setLastLatency(latency);
         setMessages((prev) =>
           prev.map((m) =>

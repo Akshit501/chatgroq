@@ -47,6 +47,7 @@ class ImageRequest(BaseModel):
     width: int = 1024
     height: int = 1024
     seed: Optional[int] = None
+    enhance: bool = True
 
 
 @app.get("/")
@@ -162,22 +163,51 @@ async def chat_stream(req: ChatRequest):
 
 @app.post("/api/generate-image")
 async def generate_image(req: ImageRequest):
-    """Generates an image URL using zero-key Pollinations.ai (Flux/SD)."""
+    """Generates an image URL using Groq prompt enhancement + free Flux (Pollinations.ai)."""
     prompt = req.prompt.strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Image prompt cannot be empty")
 
     start_time = time.time()
+    enhanced_prompt = prompt
+
+    # Enhance short user prompts into detailed visual prompts just like ChatGPT
+    if req.enhance and DEFAULT_GROQ_KEY:
+        try:
+            client = Groq(api_key=DEFAULT_GROQ_KEY)
+            res = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are an expert visual prompt engineer. Rewrite the user's request "
+                            "into a vivid, detailed image-generation prompt (style, lighting, composition) "
+                            "in under 45 words. Return ONLY the prompt text with no quotes or preamble."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.7,
+                max_tokens=100,
+            )
+            candidate = (res.choices[0].message.content or "").strip().strip('"')
+            if candidate:
+                enhanced_prompt = candidate
+        except Exception:
+            enhanced_prompt = prompt
+
     seed = req.seed if req.seed is not None else random.randint(1, 9999999)
-    encoded_prompt = quote(prompt)
+    encoded_prompt = quote(enhanced_prompt)
     image_url = (
         f"https://image.pollinations.ai/prompt/{encoded_prompt}"
-        f"?width={req.width}&height={req.height}&seed={seed}&nologo=true"
+        f"?width={req.width}&height={req.height}&seed={seed}&model=flux&nologo=true"
     )
     elapsed = round(time.time() - start_time, 2)
     return {
         "image_url": image_url,
         "prompt": prompt,
+        "enhanced_prompt": enhanced_prompt,
         "seed": seed,
         "latency": elapsed,
     }
