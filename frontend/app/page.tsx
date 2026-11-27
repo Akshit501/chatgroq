@@ -396,6 +396,7 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
   const [temperature, setTemperature] = useState(0.7);
   const [responseLength, setResponseLength] = useState<"short" | "medium" | "detailed">("medium");
@@ -796,6 +797,7 @@ export default function Home() {
     }
     setAttachment(null);
     setIsLoading(true);
+    setStreamingMsgId(assistantMessageId);
 
     setMessages((prev) => [
       ...prev,
@@ -965,13 +967,23 @@ export default function Home() {
       let finalLatency: number | undefined = undefined;
       let streamTimer: ReturnType<typeof setInterval> | null = null;
 
-      // Smooth ChatGPT-style pacing so Groq bursts render calmly word-by-word
+      // Smooth ChatGPT-style word-by-word pacing
       const drainPromise = new Promise<void>((resolve) => {
         streamTimer = setInterval(() => {
           if (displayedLength < assistantText.length) {
-            const remaining = assistantText.length - displayedLength;
-            const step = Math.max(2, Math.min(8, Math.ceil(remaining / 40)));
-            displayedLength = Math.min(assistantText.length, displayedLength + step);
+            // Advance cleanly to the end of the next word (or max 14 chars for long tokens)
+            let nextIdx = displayedLength;
+            while (nextIdx < assistantText.length && /\s/.test(assistantText[nextIdx])) {
+              nextIdx++;
+            }
+            while (
+              nextIdx < assistantText.length &&
+              !/\s/.test(assistantText[nextIdx]) &&
+              nextIdx - displayedLength < 14
+            ) {
+              nextIdx++;
+            }
+            displayedLength = Math.max(displayedLength + 1, nextIdx);
             const slice = assistantText.slice(0, displayedLength);
             setMessages((prev) =>
               prev.map((m) => (m.id === assistantMessageId ? { ...m, content: slice } : m))
@@ -980,7 +992,7 @@ export default function Home() {
             if (streamTimer) clearInterval(streamTimer);
             resolve();
           }
-        }, 22);
+        }, 34);
       });
 
       try {
@@ -1065,6 +1077,7 @@ export default function Home() {
       );
     } finally {
       setIsLoading(false);
+      setStreamingMsgId(null);
     }
   };
 
@@ -1686,7 +1699,7 @@ export default function Home() {
                 m.role === "user" ? (
                   <div
                     key={m.id}
-                    className="self-end max-w-[85%] bg-[#12131A] text-white px-5 py-3 rounded-[22px_22px_6px_22px] text-[15px] leading-relaxed shadow-xs"
+                    className="msg-enter self-end max-w-[85%] bg-[#12131A] text-white px-5 py-3 rounded-[22px_22px_6px_22px] text-[15px] leading-relaxed shadow-xs"
                   >
                     {m.attachment && (
                       <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] text-white/90">
@@ -1697,16 +1710,23 @@ export default function Home() {
                     <div className="whitespace-pre-wrap">{m.content}</div>
                   </div>
                 ) : (
-                  <div key={m.id} className="flex gap-3.5 items-start">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#5B5BFF] to-[#B06BFF] text-white grid place-items-center flex-shrink-0 shadow-[0_8px_16px_-8px_rgba(91,91,255,0.6)]">
+                  <div key={m.id} className="msg-enter flex gap-3.5 items-start">
+                    <div
+                      className={`w-9 h-9 rounded-xl bg-gradient-to-br from-[#5B5BFF] to-[#B06BFF] text-white grid place-items-center flex-shrink-0 shadow-[0_8px_16px_-8px_rgba(91,91,255,0.6)] ${
+                        streamingMsgId === m.id ? "animate-pulse ring-4 ring-[#5B5BFF]/20" : ""
+                      }`}
+                    >
                       <Sparkles className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
                       {!m.content && isLoading ? (
-                        <div className="flex gap-1.5 py-3.5">
-                          <i className="w-2 h-2 rounded-full bg-[#5B5BFF] animate-bounce" />
-                          <i className="w-2 h-2 rounded-full bg-[#5B5BFF] animate-bounce [animation-delay:0.15s]" />
-                          <i className="w-2 h-2 rounded-full bg-[#B06BFF] animate-bounce [animation-delay:0.3s]" />
+                        <div className="flex items-center gap-2.5 py-2.5 text-xs font-medium text-[#7A7E92]">
+                          <div className="flex gap-1">
+                            <i className="w-2 h-2 rounded-full bg-[#5B5BFF] animate-bounce" />
+                            <i className="w-2 h-2 rounded-full bg-[#5B5BFF] animate-bounce [animation-delay:0.15s]" />
+                            <i className="w-2 h-2 rounded-full bg-[#B06BFF] animate-bounce [animation-delay:0.3s]" />
+                          </div>
+                          <span>Thinking…</span>
                         </div>
                       ) : (
                         <>
@@ -1789,8 +1809,13 @@ export default function Home() {
                             </ReactMarkdown>
                           </div>
 
-                          {m.content && (
-                            <div className="mt-2">
+                          {streamingMsgId === m.id ? (
+                            <div className="mt-1 flex items-center gap-2 text-xs text-[#7A7E92]">
+                              <span className="stream-dot" />
+                              <span>Generating…</span>
+                            </div>
+                          ) : m.content ? (
+                            <div className="mt-2 msg-enter">
                               <div className="text-[12px] text-[#7A7E92] mb-1.5">
                                 {activeModelObj.name} ·{" "}
                                 {m.latency ? `${m.latency.toFixed(2)}s` : "Groq LPU"}
@@ -1828,7 +1853,7 @@ export default function Home() {
                                 </button>
                               </div>
                             </div>
-                          )}
+                          ) : null}
                         </>
                       )}
                     </div>
