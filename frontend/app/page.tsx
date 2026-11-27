@@ -28,6 +28,10 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Cpu,
+  Search,
+  Pencil,
+  Share2,
+  BookOpen,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -69,6 +73,59 @@ interface Limits {
   reset_tokens: string;
   reset_requests: string;
 }
+
+interface PromptTemplate {
+  id: string;
+  title: string;
+  category: string;
+  prompt: string;
+  isCustom?: boolean;
+}
+
+const DEFAULT_PROMPTS: PromptTemplate[] = [
+  {
+    id: "p1",
+    title: "Senior Code Reviewer",
+    category: "Coding",
+    prompt:
+      "Review the following code for bugs, security risks, edge cases, and performance improvements. Give concise, actionable fixes:\n\n",
+  },
+  {
+    id: "p2",
+    title: "SQL Query Builder",
+    category: "Coding",
+    prompt:
+      "Write an optimized PostgreSQL query with indexes and a brief explanation for the following requirement:\n\n",
+  },
+  {
+    id: "p3",
+    title: "Executive Email Polisher",
+    category: "Writing",
+    prompt:
+      "Rewrite this draft into a clear, confident, concise email with a strong subject line:\n\n",
+  },
+  {
+    id: "p4",
+    title: "1-Page Study Cheat Sheet",
+    category: "Study",
+    prompt:
+      "Create a crisp 1-page study cheat sheet with key definitions, formulas/rules, and 3 quick examples for:\n\n",
+  },
+  {
+    id: "p5",
+    title: "Startup Pitch & GTM",
+    category: "Business",
+    prompt:
+      "Break down the value proposition, target audience, pricing model, and 30-day launch plan for:\n\n",
+  },
+  {
+    id: "p6",
+    title: "Cinematic Concept Art",
+    category: "Image Art",
+    prompt:
+      "Generate an image of a futuristic minimalist studio overlooking snowy mountains at golden hour, soft volumetric lighting, ultra-detailed",
+  },
+];
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://chatgroq.onrender.com";
 
@@ -358,6 +415,19 @@ export default function Home() {
   const [showResponseMenu, setShowResponseMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
+  // Search, Rename, Share & Prompt Library states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingConvId, setEditingConvId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
+  const [showPromptLibrary, setShowPromptLibrary] = useState(false);
+  const [promptCategoryFilter, setPromptCategoryFilter] = useState("All");
+  const [customPrompts, setCustomPrompts] = useState<PromptTemplate[]>([]);
+  const [showNewPromptForm, setShowNewPromptForm] = useState(false);
+  const [newPromptTitle, setNewPromptTitle] = useState("");
+  const [newPromptCategory, setNewPromptCategory] = useState("Coding");
+  const [newPromptText, setNewPromptText] = useState("");
+
   const [limits, setLimits] = useState<Limits>({
     limit_tokens: 8000,
     remaining_tokens: 8000,
@@ -428,6 +498,8 @@ export default function Home() {
         setShowModelMenu(false);
         setShowResponseMenu(false);
         setShowSettingsModal(false);
+        setShowPromptLibrary(false);
+        setEditingConvId(null);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -500,6 +572,92 @@ export default function Home() {
       console.error("Failed to delete conversation", err);
     }
   };
+
+  const startRenaming = (e: React.MouseEvent, conv: Conversation) => {
+    e.stopPropagation();
+    setEditingConvId(conv.id);
+    setEditingTitle(conv.title || "");
+  };
+
+  const saveRename = async (convId: string) => {
+    const trimmed = editingTitle.trim();
+    setEditingConvId(null);
+    if (!trimmed) return;
+    try {
+      await supabase.from("conversations").update({ title: trimmed }).eq("id", convId);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, title: trimmed } : c))
+      );
+    } catch (err) {
+      console.error("Failed to rename conversation", err);
+    }
+  };
+
+  const shareConversation = (convId?: string | null) => {
+    const targetId = convId || currentConversationId;
+    if (!targetId || typeof window === "undefined") return;
+    const shareUrl = `${window.location.origin}/share/${targetId}`;
+    navigator.clipboard.writeText(shareUrl);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2500);
+  };
+
+  // Load & save custom prompts in localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("groqchat_prompts");
+      if (saved) setCustomPrompts(JSON.parse(saved));
+    } catch {
+      localStorage.removeItem("groqchat_prompts");
+    }
+  }, []);
+
+  const saveCustomPrompt = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPromptTitle.trim() || !newPromptText.trim()) return;
+    const created: PromptTemplate = {
+      id: `custom_${Date.now()}`,
+      title: newPromptTitle.trim(),
+      category: newPromptCategory,
+      prompt: newPromptText.trim(),
+      isCustom: true,
+    };
+    const next = [created, ...customPrompts];
+    setCustomPrompts(next);
+    localStorage.setItem("groqchat_prompts", JSON.stringify(next));
+    setNewPromptTitle("");
+    setNewPromptText("");
+    setShowNewPromptForm(false);
+  };
+
+  const deleteCustomPrompt = (id: string) => {
+    const next = customPrompts.filter((p) => p.id !== id);
+    setCustomPrompts(next);
+    localStorage.setItem("groqchat_prompts", JSON.stringify(next));
+  };
+
+  const applyPromptTemplate = (promptText: string) => {
+    setInput(promptText);
+    setShowPromptLibrary(false);
+    setMobileSidebarOpen(false);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 140) + "px";
+      }
+    }, 50);
+  };
+
+  const filteredConversations = conversations.filter((c) =>
+    (c.title || "Untitled Chat").toLowerCase().includes(searchQuery.trim().toLowerCase())
+  );
+
+  const allPrompts = [...customPrompts, ...DEFAULT_PROMPTS];
+  const promptCategories = ["All", "Coding", "Writing", "Business", "Study", "Image Art"];
+  const visiblePrompts = allPrompts.filter(
+    (p) => promptCategoryFilter === "All" || p.category === promptCategoryFilter
+  );
 
   // 2. Initialize Google Identity Services (GIS)
   useEffect(() => {
@@ -1187,6 +1345,16 @@ export default function Home() {
             <span>Image Studio</span>
           </button>
           <button
+            onClick={() => {
+              setShowPromptLibrary(true);
+              setMobileSidebarOpen(false);
+            }}
+            className="flex items-center gap-3 px-3 py-2 rounded-xl text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A] font-medium transition-colors text-left"
+          >
+            <BookOpen className="h-4 w-4 text-[#5B5BFF]" />
+            <span>Prompt Library</span>
+          </button>
+          <button
             onClick={() => setShowSettingsModal(true)}
             className="flex items-center gap-3 px-3 py-2 rounded-xl text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A] font-medium transition-colors text-left"
           >
@@ -1195,7 +1363,7 @@ export default function Home() {
           </button>
         </nav>
 
-        {/* Recent Conversations (Supabase) */}
+        {/* Recent Conversations (Supabase: Search, Rename, Share, Delete) */}
         <div className="flex-1 min-h-0 flex flex-col">
           <div className="flex items-center justify-between px-3 pb-1.5">
             <h2 className="text-[12px] font-medium text-[#7A7E92] opacity-85">Recent</h2>
@@ -1203,28 +1371,91 @@ export default function Home() {
               {conversations.length}
             </span>
           </div>
+
+          {/* Search Input */}
+          <div className="px-1 pb-2">
+            <div className="relative flex items-center">
+              <Search className="h-3.5 w-3.5 text-[#7A7E92] absolute left-2.5 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search chats..."
+                className="w-full rounded-xl bg-white/80 focus:bg-white border border-transparent focus:border-[#5B5BFF] pl-8 pr-7 py-1.5 text-xs text-[#12131A] placeholder:text-[#7A7E92] focus:outline-none transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 text-[#7A7E92] hover:text-[#12131A]"
+                  title="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="flex-1 overflow-y-auto space-y-0.5 pr-1">
-            {conversations.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-[#7A7E92]">No saved chats yet</div>
+            {filteredConversations.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-[#7A7E92]">
+                {searchQuery ? "No matching chats" : "No saved chats yet"}
+              </div>
             ) : (
-              conversations.map((c) => (
+              filteredConversations.map((c) => (
                 <div
                   key={c.id}
-                  onClick={() => selectConversation(c)}
+                  onClick={() => editingConvId !== c.id && selectConversation(c)}
                   className={`group flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer text-[13.5px] transition-colors ${
                     currentConversationId === c.id
                       ? "bg-white text-[#12131A] font-medium shadow-[0_1px_2px_rgba(30,30,80,.06)]"
                       : "text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A]"
                   }`}
                 >
-                  <span className="truncate">{c.title || "Untitled Chat"}</span>
-                  <button
-                    onClick={(e) => deleteConversation(e, c.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-[#7A7E92] hover:text-red-500 rounded transition-opacity"
-                    title="Delete chat"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {editingConvId === c.id ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onBlur={() => saveRename(c.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveRename(c.id);
+                        if (e.key === "Escape") setEditingConvId(null);
+                      }}
+                      className="w-full bg-[#F5F6FB] border border-[#5B5BFF] rounded-lg px-2 py-0.5 text-xs text-[#12131A] focus:outline-none"
+                    />
+                  ) : (
+                    <>
+                      <span className="truncate">{c.title || "Untitled Chat"}</span>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1">
+                        <button
+                          onClick={(e) => startRenaming(e, c)}
+                          className="p-1 text-[#7A7E92] hover:text-[#5B5BFF] rounded"
+                          title="Rename chat"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            shareConversation(c.id);
+                          }}
+                          className="p-1 text-[#7A7E92] hover:text-[#5B5BFF] rounded"
+                          title="Copy share link"
+                        >
+                          <Share2 className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(e) => deleteConversation(e, c.id)}
+                          className="p-1 text-[#7A7E92] hover:text-red-500 rounded"
+                          title="Delete chat"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))
             )}
@@ -1343,6 +1574,30 @@ export default function Home() {
               {limits.remaining_tokens.toLocaleString()} left
             </span>
           </button>
+
+          {currentConversationId && (
+            <button
+              onClick={() => shareConversation(currentConversationId)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                shareCopied
+                  ? "bg-[#E3F6EE] text-[#14A06B]"
+                  : "bg-[#F5F6FB] text-[#7A7E92] hover:text-[#5B5BFF] hover:bg-[#EEEEFF]"
+              }`}
+              title="Copy public share link"
+            >
+              {shareCopied ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  <span>Link copied!</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Share</span>
+                </>
+              )}
+            </button>
+          )}
 
           {messages.length > 0 && (
             <button
@@ -1800,6 +2055,149 @@ export default function Home() {
             </button>
           </div>
         </aside>
+      )}
+
+      {/* =====================================================================
+          PROMPT LIBRARY MODAL
+      ===================================================================== */}
+      {showPromptLibrary && (
+        <div
+          onClick={() => setShowPromptLibrary(false)}
+          className="fixed inset-0 bg-black/30 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl max-h-[85vh] flex flex-col bg-white rounded-[24px] p-6 shadow-2xl border border-[#E6E8F2]"
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-[#E6E8F2]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#EEEEFF] text-[#5B5BFF] grid place-items-center">
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[#12131A]">Prompt Library</h3>
+                  <p className="text-xs text-[#7A7E92]">
+                    1-click templates &amp; your saved custom prompts
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowNewPromptForm(!showNewPromptForm)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-br from-[#5B5BFF] to-[#B06BFF] text-white text-xs font-semibold hover:opacity-95"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>{showNewPromptForm ? "Cancel" : "Save Prompt"}</span>
+                </button>
+                <button
+                  onClick={() => setShowPromptLibrary(false)}
+                  className="p-1.5 rounded-lg text-[#7A7E92] hover:bg-[#F5F6FB]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {showNewPromptForm && (
+              <form
+                onSubmit={saveCustomPrompt}
+                className="my-4 p-4 rounded-2xl bg-[#F5F6FB] border border-[#E6E8F2] space-y-3"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    required
+                    value={newPromptTitle}
+                    onChange={(e) => setNewPromptTitle(e.target.value)}
+                    placeholder="Prompt title (e.g. LinkedIn Post)"
+                    className="rounded-xl border border-[#E6E8F2] bg-white px-3 py-2 text-xs text-[#12131A] focus:border-[#5B5BFF] focus:outline-none"
+                  />
+                  <select
+                    value={newPromptCategory}
+                    onChange={(e) => setNewPromptCategory(e.target.value)}
+                    className="rounded-xl border border-[#E6E8F2] bg-white px-3 py-2 text-xs text-[#12131A] focus:border-[#5B5BFF] focus:outline-none"
+                  >
+                    {promptCategories
+                      .filter((c) => c !== "All")
+                      .map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <textarea
+                  required
+                  rows={3}
+                  value={newPromptText}
+                  onChange={(e) => setNewPromptText(e.target.value)}
+                  placeholder="Write your reusable prompt template..."
+                  className="w-full rounded-xl border border-[#E6E8F2] bg-white p-3 text-xs text-[#12131A] focus:border-[#5B5BFF] focus:outline-none resize-none"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-[#12131A] text-white text-xs font-semibold hover:opacity-90"
+                >
+                  Add to Library
+                </button>
+              </form>
+            )}
+
+            {/* Category Filter Chips */}
+            <div className="flex flex-wrap gap-1.5 py-3">
+              {promptCategories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setPromptCategoryFilter(cat)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    promptCategoryFilter === cat
+                      ? "bg-[#12131A] text-white"
+                      : "bg-[#F5F6FB] text-[#7A7E92] hover:text-[#12131A]"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Prompt Cards Grid */}
+            <div className="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 pr-1">
+              {visiblePrompts.map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => applyPromptTemplate(p.prompt)}
+                  className="group flex flex-col justify-between p-4 rounded-2xl bg-[#F5F6FB] hover:bg-white border border-transparent hover:border-[#5B5BFF] cursor-pointer transition-all"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EEEEFF] text-[#5B5BFF]">
+                        {p.category}
+                      </span>
+                      {p.isCustom && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteCustomPrompt(p.id);
+                          }}
+                          className="p-1 text-[#7A7E92] hover:text-red-500 rounded"
+                          title="Delete custom prompt"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <h4 className="text-sm font-semibold text-[#12131A] mb-1">{p.title}</h4>
+                    <p className="text-xs text-[#7A7E92] line-clamp-3">{p.prompt}</p>
+                  </div>
+                  <div className="mt-3 text-[11px] font-semibold text-[#5B5BFF] flex items-center gap-1">
+                    <span>Use template</span>
+                    <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* =====================================================================
