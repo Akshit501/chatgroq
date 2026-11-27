@@ -332,9 +332,8 @@ function GeneratedImage({ src, alt }: { src: string; alt: string }) {
           alt={alt || "Generated AI Image"}
           onLoad={() => setLoaded(true)}
           onError={() => setHasError(true)}
-          className={`w-full h-auto object-cover transition-opacity duration-300 ${
-            loaded ? "opacity-100" : "opacity-0 h-0"
-          }`}
+          className={`w-full h-auto object-cover transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0 h-0"
+            }`}
         />
       )}
       <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-t border-[#E6E8F2] text-[11px] text-[#7A7E92]">
@@ -720,7 +719,7 @@ export default function Home() {
   }, [currentUser, isInitializing, showEmailForm]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: isLoading ? "auto" : "smooth" });
   }, [messages, isLoading]);
 
   const syncLimits = async () => {
@@ -961,66 +960,96 @@ export default function Home() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantText = "";
+      let displayedLength = 0;
+      let streamDone = false;
+      let finalLatency: number | undefined = undefined;
+      let streamTimer: ReturnType<typeof setInterval> | null = null;
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      // Smooth ChatGPT-style pacing so Groq bursts render calmly word-by-word
+      const drainPromise = new Promise<void>((resolve) => {
+        streamTimer = setInterval(() => {
+          if (displayedLength < assistantText.length) {
+            const remaining = assistantText.length - displayedLength;
+            const step = Math.max(2, Math.min(8, Math.ceil(remaining / 40)));
+            displayedLength = Math.min(assistantText.length, displayedLength + step);
+            const slice = assistantText.slice(0, displayedLength);
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantMessageId ? { ...m, content: slice } : m))
+            );
+          } else if (streamDone) {
+            if (streamTimer) clearInterval(streamTimer);
+            resolve();
+          }
+        }, 22);
+      });
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n\n");
+      try {
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const parsed = JSON.parse(line.replace("data: ", ""));
-                if (parsed.type === "chunk") {
-                  assistantText += parsed.data;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMessageId ? { ...m, content: assistantText } : m
-                    )
-                  );
-                } else if (parsed.type === "limits") {
-                  setLimits(parsed.data);
-                } else if (parsed.type === "done") {
-                  const elapsed = (performance.now() - startTime) / 1000;
-                  setLastLatency(elapsed);
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMessageId
-                        ? { ...m, latency: parsed.latency || elapsed }
-                        : m
-                    )
-                  );
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n\n");
 
-                  if (activeConvId && assistantText.trim()) {
-                    try {
-                      await supabase.from("messages").insert({
-                        conversation_id: activeConvId,
-                        role: "assistant",
-                        content: assistantText,
-                      });
-                      await supabase
-                        .from("conversations")
-                        .update({ updated_at: new Date().toISOString() })
-                        .eq("id", activeConvId);
-
-                      if (currentUser?.email) {
-                        loadConversations(currentUser.email);
-                      }
-                    } catch (err) {
-                      console.error("Error saving assistant message to Supabase", err);
-                    }
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const parsed = JSON.parse(line.replace("data: ", ""));
+                  if (parsed.type === "chunk") {
+                    assistantText += parsed.data;
+                  } else if (parsed.type === "limits") {
+                    setLimits(parsed.data);
+                  } else if (parsed.type === "done") {
+                    const elapsed = (performance.now() - startTime) / 1000;
+                    setLastLatency(elapsed);
+                    finalLatency = parsed.latency || elapsed;
+                  } else if (parsed.type === "error") {
+                    throw new Error(parsed.data);
                   }
-                } else if (parsed.type === "error") {
-                  throw new Error(parsed.data);
+                } catch (parseErr) {
+                  if (parseErr instanceof Error && parseErr.message !== "Unexpected end of JSON input") {
+                    throw parseErr;
+                  }
                 }
-              } catch {
-                // Ignore partial JSON chunks
               }
             }
           }
+        }
+
+        streamDone = true;
+        await drainPromise;
+      } finally {
+        if (streamTimer) clearInterval(streamTimer);
+      }
+
+      if (finalLatency !== undefined) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId
+              ? { ...m, content: assistantText, latency: finalLatency }
+              : m
+          )
+        );
+      }
+
+      if (activeConvId && assistantText.trim()) {
+        try {
+          await supabase.from("messages").insert({
+            conversation_id: activeConvId,
+            role: "assistant",
+            content: assistantText,
+          });
+          await supabase
+            .from("conversations")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", activeConvId);
+
+          if (currentUser?.email) {
+            loadConversations(currentUser.email);
+          }
+        } catch (err) {
+          console.error("Error saving assistant message to Supabase", err);
         }
       }
 
@@ -1291,9 +1320,8 @@ export default function Home() {
           LEFT SIDEBAR (Canvas Floating Navigation + Recent Chats + Profile)
       ===================================================================== */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-30 w-[268px] md:w-auto flex flex-col gap-5 p-4 md:p-3 md:pl-3.5 bg-[#EDEFF7] transition-transform duration-200 select-none overflow-y-auto ${
-          mobileSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
-        }`}
+        className={`fixed md:static inset-y-0 left-0 z-30 w-[268px] md:w-auto flex flex-col gap-5 p-4 md:p-3 md:pl-3.5 bg-[#EDEFF7] transition-transform duration-200 select-none overflow-y-auto ${mobileSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
+          }`}
       >
         {/* Brand */}
         <div className="flex items-center justify-between">
@@ -1335,11 +1363,10 @@ export default function Home() {
           </button>
           <button
             onClick={() => setIsImageMode(!isImageMode)}
-            className={`flex items-center gap-3 px-3 py-2 rounded-xl font-medium transition-colors text-left ${
-              isImageMode
-                ? "bg-[#EEEEFF] text-[#5B5BFF]"
-                : "text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A]"
-            }`}
+            className={`flex items-center gap-3 px-3 py-2 rounded-xl font-medium transition-colors text-left ${isImageMode
+              ? "bg-[#EEEEFF] text-[#5B5BFF]"
+              : "text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A]"
+              }`}
           >
             <ImageIcon className="h-4 w-4" />
             <span>Image Studio</span>
@@ -1405,11 +1432,10 @@ export default function Home() {
                 <div
                   key={c.id}
                   onClick={() => editingConvId !== c.id && selectConversation(c)}
-                  className={`group flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer text-[13.5px] transition-colors ${
-                    currentConversationId === c.id
-                      ? "bg-white text-[#12131A] font-medium shadow-[0_1px_2px_rgba(30,30,80,.06)]"
-                      : "text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A]"
-                  }`}
+                  className={`group flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer text-[13.5px] transition-colors ${currentConversationId === c.id
+                    ? "bg-white text-[#12131A] font-medium shadow-[0_1px_2px_rgba(30,30,80,.06)]"
+                    : "text-[#7A7E92] hover:bg-white/70 hover:text-[#12131A]"
+                    }`}
                 >
                   {editingConvId === c.id ? (
                     <input
@@ -1530,11 +1556,10 @@ export default function Home() {
                       setSelectedModel(m.id);
                       setShowModelMenu(false);
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-xl transition-colors ${
-                      selectedModel === m.id
-                        ? "bg-[#EEEEFF] text-[#5B5BFF]"
-                        : "hover:bg-[#F5F6FB] text-[#12131A]"
-                    }`}
+                    className={`w-full text-left px-3 py-2 rounded-xl transition-colors ${selectedModel === m.id
+                      ? "bg-[#EEEEFF] text-[#5B5BFF]"
+                      : "hover:bg-[#F5F6FB] text-[#12131A]"
+                      }`}
                   >
                     <div className="text-xs font-semibold">{m.name}</div>
                     <div className="text-[11px] text-[#7A7E92]">{m.desc}</div>
@@ -1558,9 +1583,8 @@ export default function Home() {
             id="usageToggleBtn"
             onClick={() => setShowInsights(!showInsights)}
             aria-expanded={showInsights}
-            className={`flex items-center gap-2 bg-[#F5F6FB] px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-              showInsights ? "ring-2 ring-[#5B5BFF]" : "hover:ring-1 hover:ring-[#5B5BFF]"
-            }`}
+            className={`flex items-center gap-2 bg-[#F5F6FB] px-3 py-1.5 rounded-full text-xs font-medium transition-all ${showInsights ? "ring-2 ring-[#5B5BFF]" : "hover:ring-1 hover:ring-[#5B5BFF]"
+              }`}
           >
             <span
               className="w-5 h-5 rounded-full relative flex-shrink-0"
@@ -1578,11 +1602,10 @@ export default function Home() {
           {currentConversationId && (
             <button
               onClick={() => shareConversation(currentConversationId)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                shareCopied
-                  ? "bg-[#E3F6EE] text-[#14A06B]"
-                  : "bg-[#F5F6FB] text-[#7A7E92] hover:text-[#5B5BFF] hover:bg-[#EEEEFF]"
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${shareCopied
+                ? "bg-[#E3F6EE] text-[#14A06B]"
+                : "bg-[#F5F6FB] text-[#7A7E92] hover:text-[#5B5BFF] hover:bg-[#EEEEFF]"
+                }`}
               title="Copy public share link"
             >
               {shareCopied ? (
@@ -1881,11 +1904,10 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsImageMode(!isImageMode)}
-                  className={`flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-full transition-colors ${
-                    isImageMode
-                      ? "bg-[#EEEEFF] text-[#5B5BFF] font-medium"
-                      : "text-[#7A7E92] hover:bg-[#5B5BFF]/10 hover:text-[#5B5BFF]"
-                  }`}
+                  className={`flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-full transition-colors ${isImageMode
+                    ? "bg-[#EEEEFF] text-[#5B5BFF] font-medium"
+                    : "text-[#7A7E92] hover:bg-[#5B5BFF]/10 hover:text-[#5B5BFF]"
+                    }`}
                 >
                   <ImageIcon className="h-3.5 w-3.5" />
                   <span>{isImageMode ? "Image ON" : "Image"}</span>
@@ -1915,11 +1937,10 @@ export default function Home() {
                             setResponseLength(opt.id as "short" | "medium" | "detailed");
                             setShowResponseMenu(false);
                           }}
-                          className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium ${
-                            responseLength === opt.id
-                              ? "bg-[#EEEEFF] text-[#5B5BFF]"
-                              : "text-[#12131A] hover:bg-[#F5F6FB]"
-                          }`}
+                          className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium ${responseLength === opt.id
+                            ? "bg-[#EEEEFF] text-[#5B5BFF]"
+                            : "text-[#12131A] hover:bg-[#F5F6FB]"
+                            }`}
                         >
                           {opt.label}
                         </button>
@@ -2149,11 +2170,10 @@ export default function Home() {
                 <button
                   key={cat}
                   onClick={() => setPromptCategoryFilter(cat)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    promptCategoryFilter === cat
-                      ? "bg-[#12131A] text-white"
-                      : "bg-[#F5F6FB] text-[#7A7E92] hover:text-[#12131A]"
-                  }`}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${promptCategoryFilter === cat
+                    ? "bg-[#12131A] text-white"
+                    : "bg-[#F5F6FB] text-[#7A7E92] hover:text-[#12131A]"
+                    }`}
                 >
                   {cat}
                 </button>
