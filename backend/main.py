@@ -2,6 +2,7 @@ import os
 import io
 import time
 import json
+import base64
 import random
 from urllib.parse import quote
 from typing import List, Optional
@@ -50,7 +51,7 @@ class ImageRequest(BaseModel):
     width: int = 1024
     height: int = 1024
     seed: Optional[int] = None
-    enhance: bool = True
+    enhance: bool = False
 
 
 @app.get("/")
@@ -204,27 +205,44 @@ async def generate_image(req: ImageRequest):
     provider = "pollinations"
     image_url = ""
 
-    # Primary: Cloudflare Workers AI (FLUX.1-schnell, 10,000 free neurons/day)
+    # Primary: Cloudflare Workers AI (Leonardo Lucid Origin -> Phoenix 1.0 -> FLUX.1-schnell)
     if CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN:
-        try:
-            cf_url = (
-                f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}"
-                "/ai/run/@cf/black-forest-labs/flux-1-schnell"
-            )
-            async with httpx.AsyncClient(timeout=30.0) as http_client:
-                cf_res = await http_client.post(
-                    cf_url,
-                    headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
-                    json={"prompt": enhanced_prompt, "steps": 4},
-                )
-            if cf_res.status_code == 200:
-                cf_json = cf_res.json()
-                b64_img = (cf_json.get("result") or {}).get("image")
-                if cf_json.get("success") and b64_img:
-                    image_url = f"data:image/jpeg;base64,{b64_img}"
-                    provider = "cloudflare-flux"
-        except Exception:
-            image_url = ""
+        cf_models = [
+            ("@cf/leonardo/lucid-origin", {"prompt": enhanced_prompt, "num_steps": 20}, "cloudflare-lucid-origin"),
+            ("@cf/leonardo/phoenix-1.0", {"prompt": enhanced_prompt, "num_steps": 20}, "cloudflare-phoenix"),
+            ("@cf/black-forest-labs/flux-1-schnell", {"prompt": enhanced_prompt, "steps": 8}, "cloudflare-flux"),
+        ]
+        async with httpx.AsyncClient(timeout=45.0) as http_client:
+            for model_id, payload, provider_name in cf_models:
+                try:
+                    cf_url = (
+                        f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}"
+                        f"/ai/run/{model_id}"
+                    )
+                    cf_res = await http_client.post(
+                        cf_url,
+                        headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
+                        json=payload,
+                    )
+                    if cf_res.status_code != 200:
+                        continue
+
+                    content_type = cf_res.headers.get("content-type", "")
+                    if "application/json" in content_type:
+                        cf_json = cf_res.json()
+                        b64_img = (cf_json.get("result") or {}).get("image")
+                        if cf_json.get("success") and b64_img:
+                            image_url = f"data:image/jpeg;base64,{b64_img}"
+                            provider = provider_name
+                            break
+                    elif "image/" in content_type and cf_res.content:
+                        mime = content_type.split(";")[0].strip()
+                        b64_img = base64.b64encode(cf_res.content).decode("utf-8")
+                        image_url = f"data:{mime};base64,{b64_img}"
+                        provider = provider_name
+                        break
+                except Exception:
+                    continue
 
     # Fallback: Zero-key Pollinations.ai
     if not image_url:

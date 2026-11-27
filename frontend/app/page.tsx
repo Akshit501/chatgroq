@@ -684,7 +684,7 @@ export default function Home() {
           const imgRes = await fetch(`${API_BASE_URL}/api/generate-image`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: cleanPrompt, enhance: true }),
+            body: JSON.stringify({ prompt: cleanPrompt, enhance: false }),
           });
           if (imgRes.ok) {
             const imgData = await imgRes.json();
